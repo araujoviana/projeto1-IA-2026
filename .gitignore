@@ -216,3 +216,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Específico do projeto: só o que a rubrica pede ---
+# (artigo, dataset com descrição, notebooks, código-fonte com cabeçalho)
+
+# Material do professor (enunciado, modelos de rubrica), só para consulta
+refs/
+
+# Anotações e rascunhos locais (o artigo fica em docs/artigo/)
+NOTES.md
+TODO.md
+notes/
+scratch/
+rascunho/
+
+# Arquivos de sistema e editor
+.DS_Store
+.vscode/
+.idea/
+
+# Microdados brutos do SIM (download público grande do dados.gov.br);
+# a fonte e uma descrição ficam em data/README.md
+data/*.csv
+data/*.dbc
+data/*.dbf
+data/*.parquet
+
