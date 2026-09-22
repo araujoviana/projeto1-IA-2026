@@ -1,0 +1,9 @@
+# =============================================================================
+# Integrantes: Arthur Meneses Neves, Danilo Oliveira Santos, Matheus Gabriel
+# Viana Araujo, João Victor Vidal Barbosa, Guilherme Araujo Castro
+#
+# Síntese: <uma ou duas frases descrevendo o que este arquivo faz>
+#
+# Changelog:
+#   2026-09-22 — Matheus Araujo — criação inicial do arquivo
+# =============================================================================
