@@ -244,3 +244,11 @@ data/*.parquet
 # Cache Parquet gerado por sim_utils.carregar_df_modelo (dado derivado, não versionar)
 data/cache/
 
+# Artefatos de compilação LaTeX do artigo (o artigo.pdf, esse sim, é versionado)
+docs/artigo/*.aux
+docs/artigo/*.bbl
+docs/artigo/*.blg
+docs/artigo/*.out
+docs/artigo/*.toc
+docs/artigo/*.log
+docs/artigo/*.synctex.gz
