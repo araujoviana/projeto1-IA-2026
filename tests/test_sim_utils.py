@@ -123,7 +123,7 @@ def _escrever_csv_sem_cabecalho(caminho, esquema, valores_por_coluna):
 
 
 def test_load_sim_anos_ano_2022_sem_cabecalho():
-    # 2022 não tem cabeçalho, mas usa o mesmo esquema de 89 colunas de 2021
+    # 2022 não tem cabeçalho, mas usa o mesmo esquema de 87 colunas de 2021
     # (CONTADOR ao final) — ver _ESQUEMAS_SEM_CABECALHO.
     import tempfile
 
@@ -197,3 +197,54 @@ def test_load_sim_anos_normaliza_dtobito_para_ddmmaaaa_de_8_digitos(tmp_path):
     df = load_sim_anos(tmp_path, [2000, 2024])
 
     assert list(df["DTOBITO"]) == ["23032000", "08112024"]
+
+
+def _linha_2022_literal():
+    """Linha de dados de 2022 (87 campos) montada com posições LITERAIS
+    (não derivadas de _ESQUEMAS_SEM_CABECALHO): 0-based, DTOBITO=2, IDADE=7,
+    SEXO=8, RACACOR=9, ESC=11, CODMUNRES=15, CAUSABAS=45 (esquema de 2021, conferido no arquivo real)."""
+    campos = [""] * 87
+    campos[1] = "2"
+    campos[2] = "21-04-2022"
+    campos[7] = "499"
+    campos[8] = "2"
+    campos[9] = "1"
+    campos[11] = "4"
+    campos[15] = "354850"
+    campos[45] = "I219"
+    return campos
+
+
+def test_load_sim_anos_2022_posicoes_literais(tmp_path):
+    (tmp_path / "Mortalidade_Geral_2022.csv").write_text(
+        ";".join(_linha_2022_literal()) + "\n", encoding="latin1"
+    )
+    df = load_sim_anos(tmp_path, [2022])
+    linha = df.iloc[0]
+    assert linha["CAUSABAS"] == "I219"
+    assert linha["SEXO"] == 2
+    assert linha["CODMUNRES"] == 354850
+    assert linha["DTOBITO"] == "21042022"
+
+
+def test_load_sim_anos_sem_cabecalho_com_numero_de_campos_errado(tmp_path):
+    import pytest
+
+    campos = _linha_2022_literal() + ["EXTRA"]  # 88 campos em vez de 87
+    (tmp_path / "Mortalidade_Geral_2022.csv").write_text(
+        ";".join(campos) + "\n", encoding="latin1"
+    )
+    with pytest.raises(ValueError, match=r"2022.*88.*87"):
+        load_sim_anos(tmp_path, [2022])
+
+
+def test_load_sim_anos_sem_cabecalho_mas_arquivo_tem_cabecalho(tmp_path):
+    import pytest
+
+    cabecalho = ";".join(f'"{c}"' for c in sim_utils._ESQUEMAS_SEM_CABECALHO[2023])
+    dado = ";".join([""] * len(sim_utils._ESQUEMAS_SEM_CABECALHO[2023]))
+    (tmp_path / "Mortalidade_Geral_2023.csv").write_text(
+        cabecalho + "\n" + dado + "\n", encoding="latin1"
+    )
+    with pytest.raises(ValueError, match=r"2023.*cabeçalho"):
+        load_sim_anos(tmp_path, [2023])

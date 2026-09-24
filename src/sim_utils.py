@@ -14,7 +14,10 @@
 #   2026-09-23 — Matheus Araujo — load_sim_anos: normaliza DTOBITO para
 #     texto ddmmaaaa de 8 dígitos (formato bruto varia: "dd-mm-aaaa" em
 #     2022/2023, inteiro sem zero à esquerda em 2024-2026)
+#   2026-09-23 — Matheus Araujo — load_sim_anos: valida a 1ª linha dos anos
+#     sem cabeçalho (nº de campos e não ser cabeçalho) e falha com ValueError
 # =============================================================================
+import csv
 import math
 import re
 from pathlib import Path
@@ -128,7 +131,7 @@ def causabas_to_chapter(codigo_cid10):
     return (None, None)
 
 
-# Esquema completo (89 colunas, na ordem em que aparecem no arquivo) do ano
+# Esquema completo (87 colunas, na ordem em que aparecem no arquivo) do ano
 # de 2021 — usado como referência para reconstruir o cabeçalho de anos cujo
 # CSV bruto do SIM não traz uma linha de cabeçalho (ver _ESQUEMAS_SEM_CABECALHO
 # abaixo). Column names conferidos batendo o valor de cada posição contra o
@@ -242,6 +245,32 @@ _ESQUEMAS_SEM_CABECALHO = {
 }
 
 
+def _validar_primeira_linha_sem_cabecalho(caminho, ano, esquema):
+    """Confere, lendo só a primeira linha de um CSV registrado em
+    _ESQUEMAS_SEM_CABECALHO, que o layout ainda é o esperado: mesmo número
+    de campos do esquema e primeira linha sendo um registro de dados (não
+    uma linha de cabeçalho). Sem isso, o pandas preencheria com NaN ou
+    deslocaria colunas em silêncio caso o arquivo fosse rebaixado com outro
+    layout, ou leria um cabeçalho como se fosse um óbito."""
+    with open(caminho, encoding="latin1", newline="") as f:
+        primeira = next(csv.reader(f, delimiter=";"), [])
+    if len(primeira) != len(esquema):
+        raise ValueError(
+            f"Ano {ano} ({Path(caminho).name}): a primeira linha tem "
+            f"{len(primeira)} campos, mas o esquema sem cabeçalho esperado "
+            f"tem {len(esquema)} — o layout do arquivo mudou; revise "
+            "_ESQUEMAS_SEM_CABECALHO."
+        )
+    nomes = {c.upper() for c in esquema}
+    if primeira and primeira[0].strip().strip('"').upper() in nomes:
+        raise ValueError(
+            f"Ano {ano} ({Path(caminho).name}): a primeira linha parece um "
+            f"cabeçalho (primeiro campo {primeira[0]!r} é um nome de coluna), "
+            "mas o ano está registrado como sem cabeçalho em "
+            "_ESQUEMAS_SEM_CABECALHO — remova o ano de lá."
+        )
+
+
 def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
     """Carrega e concatena os arquivos `Mortalidade_Geral_<ano>.csv` de
     vários anos a partir de `data_dir`, mantendo apenas `colunas` (por
@@ -276,6 +305,9 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
         # para ddmmaaaa de 8 dígitos abaixo.
         dtype = {"DTOBITO": str} if "DTOBITO" in colunas else None
         if ano in _ESQUEMAS_SEM_CABECALHO:
+            _validar_primeira_linha_sem_cabecalho(
+                caminho, ano, _ESQUEMAS_SEM_CABECALHO[ano]
+            )
             df_ano = pd.read_csv(
                 caminho,
                 sep=";",
