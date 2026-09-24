@@ -5,8 +5,8 @@ Alcântara de Oliveira), Universidade Presbiteriana Mackenzie.
 
 Compara Random Forest e XGBoost, contra um baseline de classe majoritária,
 na classificação do capítulo CID-10 da causa básica de óbito a partir de
-variáveis sociodemográficas (idade, sexo, raça/cor, escolaridade e município
-de residência). Os dados vêm do Sistema de Informação sobre Mortalidade (SIM)
+variáveis sociodemográficas (idade, sexo, raça/cor, escolaridade e UF, derivada
+do município de residência). Os dados vêm do Sistema de Informação sobre Mortalidade (SIM)
 do Ministério da Saúde, Brasil, 2000-2026 (ODS 3, Saúde e Bem-Estar).
 
 ## Resumo dos resultados (N1, parciais)
