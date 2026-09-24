@@ -10,14 +10,26 @@
 #   2026-09-22 — Matheus Araujo — criação inicial do arquivo
 #   2026-09-22 — Matheus Araujo — testa load_sim_anos para os anos sem
 #     cabeçalho (2022, 2023), achado ao rodar a EDA sobre dados reais
+#   2026-09-23 — Matheus Araujo — testa preparar_df_modelo (idade
+#     vetorizada, mapeamentos ESC/RACACOR, UF, filtros e contabilidade) e o
+#     cache carregar_df_modelo (chave, invalidação, refresh)
 # =============================================================================
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+import numpy as np
+import pandas as pd
+
 import sim_utils
-from sim_utils import causabas_to_chapter, decode_idade_anos, load_sim_anos
+from sim_utils import (
+    carregar_df_modelo,
+    causabas_to_chapter,
+    decode_idade_anos,
+    load_sim_anos,
+    preparar_df_modelo,
+)
 
 assert sim_utils  # usado via sim_utils._ESQUEMAS_SEM_CABECALHO nos testes abaixo
 
@@ -248,3 +260,238 @@ def test_load_sim_anos_sem_cabecalho_mas_arquivo_tem_cabecalho(tmp_path):
     )
     with pytest.raises(ValueError, match=r"2023.*cabeçalho"):
         load_sim_anos(tmp_path, [2023])
+
+
+# ---------------------------------------------------------------------------
+# Preparação para modelagem: preparar_df_modelo / carregar_df_modelo
+# ---------------------------------------------------------------------------
+
+
+def test_decode_idade_vetorizado_igual_ao_escalar_em_todas_as_unidades():
+    codigos = [
+        np.nan, 0, 999,  # ausente / ignorado
+        101, 123,  # horas
+        201, 230,  # dias
+        301, 311,  # meses
+        400, 423, 499,  # anos
+        500, 512,  # 100+ anos
+        "423", "999", "0",  # texto (arquivos com dtype object)
+    ]
+    serie = pd.Series(codigos, dtype=object)
+    obtido = sim_utils.decode_idade_anos_vetorizado(serie)
+    esperado = [
+        np.nan if decode_idade_anos(c if not isinstance(c, str) else float(c)) is None
+        else decode_idade_anos(c if not isinstance(c, str) else float(c))
+        for c in codigos
+    ]
+    assert len(obtido) == len(esperado)
+    np.testing.assert_array_equal(obtido.to_numpy(dtype=float), np.array(esperado, dtype=float))
+
+
+def _df_bruto():
+    """Frame sintético no formato de saída de load_sim_anos, com as
+    irregularidades vistas nos dados reais: ESC misto (texto em 2000-2001,
+    'A', '8', 0, 9, NaN), SEXO 0, IDADE ignorada, CODMUNRES de 6 e 7 dígitos,
+    CAUSABAS ausente."""
+    return pd.DataFrame(
+        {
+            "TIPOBITO": [2, 2, 2, 2, 2, 2, 2, 2, 2],
+            "DTOBITO": ["01012000"] * 9,
+            "IDADE": [423, 512, 205, 999, 430, 425, 440, 450, 460],
+            "SEXO": [1, 2, 0, 1, 2, 1, 2, 1, 1],
+            "RACACOR": [1, 2, 3, 4, 5, np.nan, 9, 1, 1],
+            "ESC": ["1", "2", "9", "A", "8", 3.0, np.nan, 0.0, 5.0],
+            "CODMUNRES": [3550308, 355030, 3304557, 330455, 5300108, 999999, np.nan, 3550308, 4314902],
+            "CAUSABAS": ["I219", "C349", "R98", "I10", "V892", "*T794", "J189", None, "O800"],
+            "ANO_ARQUIVO": [2000, 2000, 2001, 2001, 2022, 2022, 2023, 2023, 2023],
+        }
+    )
+
+
+def test_preparar_df_modelo_colunas_e_tipos():
+    out = preparar_df_modelo(_df_bruto())
+    assert list(out.columns) == [
+        "idade_anos", "sexo", "racacor", "escolaridade", "uf",
+        "codmun6", "ano_arquivo", "capitulo_cid10",
+    ]
+    assert not out.isna().any().any() or list(out.columns[out.isna().any()]) == ["codmun6"]
+
+
+def test_preparar_df_modelo_filtros_e_contabilidade():
+    out = preparar_df_modelo(_df_bruto())
+    c = out.attrs["diagnosticos"]["contabilidade"]
+    # linha 2 (SEXO 0) sai; linha 3 (IDADE 999) sai; linha 7 (CAUSABAS
+    # ausente, IDADE 460) sai; e "*T794" (linha 5) vira capítulo XIX.
+    assert c["n_bruto"] == 9
+    assert c["n_apos_sexo"] == 8
+    assert c["n_apos_idade"] == 7
+    assert c["n_apos_capitulo"] == 6
+    assert c["n_final"] == 6 == len(out)
+    assert c["descartados_sexo"] == 1
+    assert c["descartados_idade"] == 1
+    assert c["descartados_capitulo"] == 1
+    assert set(out["sexo"].astype(str)) == {"Masculino", "Feminino"}
+
+
+def test_preparar_df_modelo_valores_por_linha():
+    out = preparar_df_modelo(_df_bruto()).reset_index(drop=True)
+    # sobreviventes: linhas 0, 1, 4, 5, 6, 8 do bruto
+    assert list(out["idade_anos"]) == [23, 112, 30, 25, 40, 60]
+    assert list(out["capitulo_cid10"].astype(str)) == ["IX", "II", "XX", "XIX", "X", "XV"]
+    assert list(out["sexo"].astype(str)) == ["Masculino", "Feminino", "Feminino", "Masculino", "Feminino", "Masculino"]
+    assert list(out["racacor"].astype(str)) == ["Branca", "Preta", "Indígena", "Ignorado", "Ignorado", "Branca"]
+    # ESC: "1"->Nenhuma, "2"->1a3, "8"->Ignorado, 3.0->4a7, NaN->Ignorado, 5.0->12+
+    assert list(out["escolaridade"].astype(str)) == [
+        "Nenhuma", "1a3anos", "Ignorado", "4a7anos", "Ignorado", "12+anos",
+    ]
+    assert list(out["ano_arquivo"]) == [2000, 2000, 2022, 2022, 2023, 2023]
+
+
+def test_preparar_df_modelo_municipio_seis_digitos_e_uf():
+    out = preparar_df_modelo(_df_bruto()).reset_index(drop=True)
+    # 3550308 e 355030 -> 355030; 5300108 -> 530010 (DF); 999999 e NaN -> inválido
+    assert out["codmun6"].iloc[0] == 355030
+    assert out["codmun6"].iloc[1] == 355030
+    assert out["codmun6"].iloc[2] == 530010
+    assert pd.isna(out["codmun6"].iloc[3])  # 999999 não é município válido
+    assert pd.isna(out["codmun6"].iloc[4])  # NaN
+    assert list(out["uf"].astype(str)) == ["SP", "SP", "DF", "Ignorado", "Ignorado", "RS"]
+
+
+def test_preparar_df_modelo_diagnostico_bruto_por_ano_e_tabela_de_mapeamento():
+    out = preparar_df_modelo(_df_bruto())
+    diag = out.attrs["diagnosticos"]
+    esc = pd.DataFrame(diag["esc_bruto_por_ano"]).T.fillna(0).astype(int)
+    # ano 2000 tem ESC "1" e "2"; 2001 tem "9" e "A"; 2022 tem "8" e 3
+    assert esc.loc["2000", "1"] == 1 and esc.loc["2000", "2"] == 1
+    assert esc.loc["2001", "9"] == 1 and esc.loc["2001", "A"] == 1
+    assert esc.loc["2022", "8"] == 1 and esc.loc["2022", "3"] == 1
+    assert esc.loc["2023", "NaN"] == 1 and esc.loc["2023", "0"] == 1
+    assert esc.to_numpy().sum() == 9  # calculado sobre os 9 registros brutos
+    tab = sim_utils.tabela_mapeamento(diag["esc_bruto_por_ano"], sim_utils.ESC_MAP)
+    assert dict(zip(tab["bruto"], tab["mapeado"])) == {
+        "0": "Ignorado", "1": "Nenhuma", "2": "1a3anos", "3": "4a7anos",
+        "5": "12+anos", "8": "Ignorado", "9": "Ignorado", "A": "Ignorado",
+        "NaN": "Ignorado",
+    }
+    assert tab["n"].sum() == 9
+
+
+def _csv_ano(tmp_path, ano, linhas):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    caminho = tmp_path / f"Mortalidade_Geral_{ano}.csv"
+    caminho.write_text(
+        '"TIPOBITO";"DTOBITO";"IDADE";"SEXO";"RACACOR";"ESC";"CODMUNRES";"CAUSABAS"\n'
+        + "".join(l + "\n" for l in linhas),
+        encoding="latin1",
+    )
+    return caminho
+
+
+def _dataset_sintetico(tmp_path):
+    _csv_ano(tmp_path, 2000, [
+        '"2";"01012000";"423";"1";"1";"3";"3550308";"I219"',
+        '"2";"02012000";"365";"2";"4";"2";"3304557";"C349"',
+    ])
+    _csv_ano(tmp_path, 2001, [
+        '"2";"02012001";"430";"2";"4";"9";"355030";"J189"',
+    ])
+    return tmp_path
+
+
+def _contador_de_leituras(monkeypatch):
+    chamadas = []
+    original = sim_utils.load_sim_anos
+
+    def contando(*args, **kwargs):
+        chamadas.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(sim_utils, "load_sim_anos", contando)
+    return chamadas
+
+
+def test_carregar_df_modelo_segunda_chamada_le_do_cache_sem_reler_csvs(tmp_path, monkeypatch):
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+
+    df1 = carregar_df_modelo(dados, [2000, 2001], cache)
+    assert len(chamadas) == 1
+    assert len(list(cache.glob("*.parquet"))) == 1
+    df2 = carregar_df_modelo(dados, [2000, 2001], cache)
+    assert len(chamadas) == 1  # cache hit: CSVs não foram relidos
+    pd.testing.assert_frame_equal(df1, df2)
+    assert df2.attrs["diagnosticos"]["contabilidade"]["n_final"] == 3
+    assert df2.attrs["diagnosticos"] == df1.attrs["diagnosticos"]
+
+
+def test_carregar_df_modelo_invalida_cache_quando_prep_version_muda(tmp_path, monkeypatch):
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+    carregar_df_modelo(dados, [2000, 2001], cache)
+    monkeypatch.setattr(sim_utils, "PREP_VERSION", sim_utils.PREP_VERSION + "-novo")
+    carregar_df_modelo(dados, [2000, 2001], cache)
+    assert len(chamadas) == 2
+
+
+def test_carregar_df_modelo_invalida_cache_quando_csv_muda_de_tamanho(tmp_path, monkeypatch):
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+    df1 = carregar_df_modelo(dados, [2000, 2001], cache)
+    with open(dados / "Mortalidade_Geral_2001.csv", "a", encoding="latin1") as f:
+        f.write('"2";"03012001";"440";"1";"1";"4";"355030";"C349"\n')
+    df2 = carregar_df_modelo(dados, [2000, 2001], cache)
+    assert len(chamadas) == 2
+    assert len(df2) == len(df1) + 1
+
+
+def test_carregar_df_modelo_invalida_cache_quando_csv_muda_de_mtime(tmp_path, monkeypatch):
+    import os
+
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+    carregar_df_modelo(dados, [2000, 2001], cache)
+    arq = dados / "Mortalidade_Geral_2000.csv"
+    st = arq.stat()
+    os.utime(arq, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    carregar_df_modelo(dados, [2000, 2001], cache)
+    assert len(chamadas) == 2
+
+
+def test_carregar_df_modelo_conjunto_de_anos_diferente_usa_outra_chave(tmp_path, monkeypatch):
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+    a = carregar_df_modelo(dados, [2000, 2001], cache)
+    b = carregar_df_modelo(dados, [2000], cache)
+    assert len(chamadas) == 2
+    assert len(b) < len(a)
+    carregar_df_modelo(dados, [2000, 2001], cache)  # ainda em cache
+    assert len(chamadas) == 2
+
+
+def test_carregar_df_modelo_refresh_forca_reconstrucao(tmp_path, monkeypatch):
+    dados = _dataset_sintetico(tmp_path / "data")
+    cache = tmp_path / "cache"
+    chamadas = _contador_de_leituras(monkeypatch)
+    carregar_df_modelo(dados, [2000, 2001], cache)
+    carregar_df_modelo(dados, [2000, 2001], cache, refresh=True)
+    assert len(chamadas) == 2
+
+
+def test_carregar_df_modelo_arquivo_ausente_da_erro_com_o_ano(tmp_path):
+    import pytest
+
+    with pytest.raises(FileNotFoundError, match="1979"):
+        carregar_df_modelo(tmp_path, [1979], tmp_path / "cache")
+
+
+def test_carregar_df_modelo_equivale_a_preparar_sobre_load_sim_anos(tmp_path):
+    dados = _dataset_sintetico(tmp_path / "data")
+    direto = preparar_df_modelo(load_sim_anos(dados, [2000, 2001]))
+    via_cache = carregar_df_modelo(dados, [2000, 2001], tmp_path / "cache")
+    pd.testing.assert_frame_equal(direto, via_cache)

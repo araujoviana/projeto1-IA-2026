@@ -241,4 +241,6 @@ data/*.csv
 data/*.dbc
 data/*.dbf
 data/*.parquet
+# Cache Parquet gerado por sim_utils.carregar_df_modelo (dado derivado, não versionar)
+data/cache/
 

@@ -16,12 +16,20 @@
 #     2022/2023, inteiro sem zero à esquerda em 2024-2026)
 #   2026-09-23 — Matheus Araujo — load_sim_anos: valida a 1ª linha dos anos
 #     sem cabeçalho (nº de campos e não ser cabeçalho) e falha com ValueError
+#   2026-09-23 — Matheus Araujo — adiciona preparar_df_modelo (frame de
+#     modelagem: idade vetorizada, ESC/RACACOR harmonizados, UF derivada do
+#     município, filtros com contabilidade) e carregar_df_modelo (cache
+#     Parquet com chave = anos + tamanho/mtime dos CSVs + PREP_VERSION)
 # =============================================================================
 import csv
+import hashlib
+import json
 import math
+import os
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # Colunas presentes com o mesmo nome em todos os anos do SIM conferidos
@@ -271,6 +279,19 @@ def _validar_primeira_linha_sem_cabecalho(caminho, ano, esquema):
         )
 
 
+def _caminho_ano(data_dir, ano):
+    """Caminho do CSV do ano em `data_dir`; FileNotFoundError citando o ano
+    se o arquivo não existir."""
+    caminho = Path(data_dir) / f"Mortalidade_Geral_{ano}.csv"
+    if not caminho.exists():
+        raise FileNotFoundError(
+            f"Arquivo do ano {ano} não encontrado em {data_dir} "
+            f"(esperado: {caminho.name}) — baixe-o do dados.gov.br e "
+            "salve com esse nome (ver data/README.md)."
+        )
+    return caminho
+
+
 def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
     """Carrega e concatena os arquivos `Mortalidade_Geral_<ano>.csv` de
     vários anos a partir de `data_dir`, mantendo apenas `colunas` (por
@@ -292,13 +313,7 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
     """
     frames = []
     for ano in anos:
-        caminho = Path(data_dir) / f"Mortalidade_Geral_{ano}.csv"
-        if not caminho.exists():
-            raise FileNotFoundError(
-                f"Arquivo do ano {ano} não encontrado em {data_dir} "
-                f"(esperado: {caminho.name}) — baixe-o do dados.gov.br e "
-                "salve com esse nome (ver data/README.md)."
-            )
+        caminho = _caminho_ano(data_dir, ano)
         # DTOBITO vem em formatos diferentes conforme o ano (ddmmaaaa com
         # zero à esquerda em 2000-2021, "dd-mm-aaaa" em 2022-2023, inteiro
         # sem zero à esquerda em 2024-2026); lê-se como texto e normaliza
@@ -334,3 +349,264 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
         df_ano["ANO_ARQUIVO"] = ano
         frames.append(df_ano)
     return pd.concat(frames, ignore_index=True)
+
+
+# =============================================================================
+# Preparação para modelagem
+# =============================================================================
+
+# Bump SEMPRE que mudar a lógica de load_sim_anos / preparar_df_modelo (ou os
+# mapeamentos abaixo): a versão entra na chave do cache Parquet, então um
+# cache antigo nunca é servido em silêncio.
+PREP_VERSION = "1"
+
+# Esquema único de escolaridade (ESC). Dicionário do SIM: 1 nenhuma, 2 de 1 a
+# 3 anos, 3 de 4 a 7, 4 de 8 a 11, 5 12 e mais, 9 ignorado. Todo o resto
+# (9, NaN, 0, 'A', '8', qualquer valor desconhecido) vira "Ignorado" — o 0
+# só aparece em alguns anos e não consta no dicionário de ESC.
+ESC_MAP = {
+    1: "Nenhuma",
+    2: "1a3anos",
+    3: "4a7anos",
+    4: "8a11anos",
+    5: "12+anos",
+}
+# Raça/cor: 1 branca, 2 preta, 3 amarela, 4 parda, 5 indígena; 9/NaN/outros
+# viram "Ignorado".
+RACACOR_MAP = {1: "Branca", 2: "Preta", 3: "Amarela", 4: "Parda", 5: "Indígena"}
+SEXO_MAP = {1: "Masculino", 2: "Feminino"}
+ROTULO_IGNORADO = "Ignorado"
+
+# Código IBGE de 2 dígitos da UF -> sigla (27 UFs).
+UF_POR_CODIGO_IBGE = {
+    11: "RO", 12: "AC", 13: "AM", 14: "RR", 15: "PA", 16: "AP", 17: "TO",
+    21: "MA", 22: "PI", 23: "CE", 24: "RN", 25: "PB", 26: "PE", 27: "AL",
+    28: "SE", 29: "BA", 31: "MG", 32: "ES", 33: "RJ", 35: "SP", 41: "PR",
+    42: "SC", 43: "RS", 50: "MS", 51: "MT", 52: "GO", 53: "DF",
+}
+
+MODEL_COLUMNS = [
+    "idade_anos",
+    "sexo",
+    "racacor",
+    "escolaridade",
+    "uf",
+    "codmun6",
+    "ano_arquivo",
+    "capitulo_cid10",
+]
+
+
+def decode_idade_anos_vetorizado(idade):
+    """Versão vetorizada de `decode_idade_anos` (mesma regra, sem `.apply`
+    linha a linha). Recebe uma Series com o campo IDADE (numérico ou texto) e
+    devolve uma Series float com a idade em anos, NaN onde ignorada/ausente
+    (000, 999, NaN, não numérico)."""
+    codigo = pd.to_numeric(idade, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    unidade = np.floor(codigo / 100)
+    valor = codigo - unidade * 100
+    anos = np.where(unidade == 4, valor, np.where(unidade == 5, 100 + valor, 0.0))
+    ignorado = np.isnan(codigo) | (codigo == 0) | (codigo == 999)
+    anos = np.where(ignorado, np.nan, anos)
+    return pd.Series(anos, index=getattr(idade, "index", None), name="idade_anos")
+
+
+def _capitulo_cid10_vetorizado(causabas):
+    """Capítulo CID-10 (numeral) de cada linha como Categorical; `causabas_to_chapter`
+    é chamada uma única vez por código distinto. Sem capítulo -> código -1 (NaN)."""
+    codigos, unicos = pd.factorize(causabas)
+    categorias = [numeral for numeral, _, _, _ in _CHAPTER_RANGES]
+    posicao = {numeral: i for i, numeral in enumerate(categorias)}
+    lookup = np.array(
+        [posicao.get(causabas_to_chapter(u)[0], -1) for u in unicos] + [-1],
+        dtype=np.int16,
+    )
+    novos = lookup[np.where(codigos < 0, len(unicos), codigos)]
+    return pd.Categorical.from_codes(novos, categories=categorias)
+
+
+def _rotulos_brutos(serie, numerico):
+    """Rótulo texto do valor bruto de cada linha ("1", "9", "A", "NaN"...),
+    normalizando 1, 1.0 e "1" para o mesmo rótulo "1"."""
+    codigos, unicos = pd.factorize(numerico)
+    rot_unicos = [str(int(u)) if float(u).is_integer() else str(u) for u in unicos]
+    rot = np.array(rot_unicos + ["NaN"], dtype=object)[
+        np.where(codigos < 0, len(unicos), codigos)
+    ]
+    texto = np.isnan(numerico) & serie.notna().to_numpy()
+    if texto.any():
+        rot[texto] = serie.to_numpy(dtype=object)[texto].astype(str)
+    return rot
+
+
+def _categorizar(serie, ano_arquivo, mapa):
+    """Mapeia um campo categórico numérico do SIM para rótulos texto segundo
+    `mapa` (código -> rótulo); tudo que não está em `mapa` vira "Ignorado".
+    Devolve (Categorical, distribuição bruta por ano {ano: {rótulo_bruto: n}})."""
+    numerico = pd.to_numeric(serie, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    rotulos = list(dict.fromkeys(mapa.values())) + [ROTULO_IGNORADO]
+    codigos = np.full(len(numerico), len(rotulos) - 1, dtype=np.int8)
+    for codigo, rotulo in mapa.items():
+        codigos[numerico == codigo] = rotulos.index(rotulo)
+    categorica = pd.Categorical.from_codes(codigos, categories=rotulos)
+    tabela = (
+        pd.DataFrame({"ano": ano_arquivo, "bruto": _rotulos_brutos(serie, numerico)})
+        .groupby(["ano", "bruto"])
+        .size()
+        .unstack(fill_value=0)
+    )
+    bruto_por_ano = {
+        str(ano): {rot: int(n) for rot, n in linha.items() if n}
+        for ano, linha in tabela.iterrows()
+    }
+    return categorica, bruto_por_ano
+
+
+def tabela_mapeamento(bruto_por_ano, mapa):
+    """Tabela bruto -> mapeado a partir da distribuição bruta por ano gerada
+    por `preparar_df_modelo` (attrs["diagnosticos"]["esc_bruto_por_ano"] etc.):
+    colunas `bruto`, `n` (total nos anos), `pct` e `mapeado`."""
+    totais = pd.DataFrame(bruto_por_ano).T.fillna(0).sum()
+    tab = totais.rename("n").astype(int).rename_axis("bruto").reset_index()
+
+    def _mapeado(bruto):
+        if bruto.lstrip("-").isdigit():
+            return mapa.get(int(bruto), ROTULO_IGNORADO)
+        return ROTULO_IGNORADO
+
+    tab["mapeado"] = tab["bruto"].map(_mapeado)
+    tab["pct"] = 100 * tab["n"] / tab["n"].sum()
+    return tab.sort_values(["mapeado", "bruto"]).reset_index(drop=True)
+
+
+def _municipio_e_uf(serie):
+    """CODMUNRES (6 ou 7 dígitos IBGE, o 7º é o dígito verificador) ->
+    (codmun6 Int32 com NA nos inválidos, uf Categorical com sigla ou
+    "Ignorado"). Válido = 6 dígitos cujo prefixo de 2 dígitos é uma UF."""
+    num = pd.to_numeric(serie, errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    sete = (num >= 1_000_000) & (num < 10_000_000)
+    seis = (num >= 100_000) & (num < 1_000_000)
+    cod6 = np.where(sete, np.floor(num / 10), np.where(seis, num, np.nan))
+    prefixo = np.floor(cod6 / 10_000)
+    siglas = list(UF_POR_CODIGO_IBGE.values()) + [ROTULO_IGNORADO]
+    idx = np.full(len(num), len(siglas) - 1, dtype=np.int8)
+    for i, codigo in enumerate(UF_POR_CODIGO_IBGE):
+        idx[prefixo == codigo] = i
+    valido = idx != len(siglas) - 1
+    codmun6 = pd.array(np.where(valido, cod6, np.nan), dtype="Int32")
+    return codmun6, pd.Categorical.from_codes(idx, categories=siglas)
+
+
+def preparar_df_modelo(df):
+    """Transforma a saída de `load_sim_anos` no frame de modelagem, com as
+    colunas de MODEL_COLUMNS:
+
+    - `idade_anos` (int16): IDADE decodificada (vetorizada); ignorada -> linha descartada.
+    - `sexo`: Masculino/Feminino; SEXO fora de {1, 2} (ex.: 0 = ignorado) -> linha descartada.
+    - `racacor`, `escolaridade`: esquema único (RACACOR_MAP, ESC_MAP); qualquer
+      valor não mapeável (9, NaN, 'A', '8', 0...) vira "Ignorado" (nunca
+      descarta a linha).
+    - `codmun6` (Int32) e `uf`: CODMUNRES truncado a 6 dígitos e UF derivada dos
+      2 primeiros; município inválido -> codmun6 NA e uf "Ignorado".
+    - `ano_arquivo` (int16) e `capitulo_cid10` (Categorical; alvo). Linha sem
+      capítulo CID-10 (CAUSABAS ausente/fora do escopo) -> descartada.
+
+    Os filtros são aplicados em sequência (sexo, idade, capítulo). O resultado
+    traz em `attrs["diagnosticos"]` a contabilidade de linhas, a distribuição
+    bruta de ESC e RACACOR por ano (antes do mapeamento) e a contagem de
+    TIPOBITO das linhas finais.
+    """
+    n_bruto = len(df)
+    ano = pd.to_numeric(df["ANO_ARQUIVO"]).to_numpy()
+
+    escolaridade, esc_bruto = _categorizar(df["ESC"], ano, ESC_MAP)
+    racacor, raca_bruto = _categorizar(df["RACACOR"], ano, RACACOR_MAP)
+
+    sexo_num = pd.to_numeric(df["SEXO"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    ok_sexo = np.isin(sexo_num, list(SEXO_MAP))
+    idade = decode_idade_anos_vetorizado(df["IDADE"]).to_numpy()
+    ok_idade = ~np.isnan(idade)
+    capitulo = _capitulo_cid10_vetorizado(df["CAUSABAS"])
+    ok_cap = capitulo.codes >= 0
+
+    m_sexo = ok_sexo
+    m_idade = m_sexo & ok_idade
+    m_final = m_idade & ok_cap
+
+    codmun6, uf = _municipio_e_uf(df["CODMUNRES"])
+    sexo = pd.Categorical.from_codes(
+        np.where(ok_sexo, sexo_num - 1, -1).astype(np.int8), categories=list(SEXO_MAP.values())
+    )
+
+    out = pd.DataFrame(
+        {
+            "idade_anos": pd.Series(idade[m_final]).astype("int16"),
+            "sexo": sexo[m_final],
+            "racacor": racacor[m_final],
+            "escolaridade": escolaridade[m_final],
+            "uf": uf[m_final].remove_unused_categories(),
+            "codmun6": codmun6[m_final],
+            "ano_arquivo": pd.Series(ano[m_final]).astype("int16"),
+            "capitulo_cid10": capitulo[m_final].remove_unused_categories(),
+        }
+    )[MODEL_COLUMNS]
+
+    n_sexo, n_idade, n_final = int(m_sexo.sum()), int(m_idade.sum()), int(m_final.sum())
+    diagnosticos = {
+        "contabilidade": {
+            "n_bruto": n_bruto,
+            "n_apos_sexo": n_sexo,
+            "n_apos_idade": n_idade,
+            "n_apos_capitulo": n_final,
+            "n_final": n_final,
+            "descartados_sexo": n_bruto - n_sexo,
+            "descartados_idade": n_sexo - n_idade,
+            "descartados_capitulo": n_idade - n_final,
+        },
+        "esc_bruto_por_ano": esc_bruto,
+        "racacor_bruto_por_ano": raca_bruto,
+    }
+    if "TIPOBITO" in df.columns:
+        tipo = df["TIPOBITO"].to_numpy(dtype=object)[m_final]
+        rotulos, contagens = np.unique(pd.Series(tipo).astype(str), return_counts=True)
+        diagnosticos["tipobito_final"] = {r: int(c) for r, c in zip(rotulos, contagens)}
+    out.attrs["diagnosticos"] = diagnosticos
+    return out
+
+
+def _chave_cache(data_dir, anos):
+    """Hash (16 hex) de: PREP_VERSION, lista de anos e (tamanho, mtime) de
+    cada CSV de origem. FileNotFoundError (citando o ano) se faltar arquivo."""
+    partes = []
+    for ano in anos:
+        st = _caminho_ano(data_dir, ano).stat()
+        partes.append([int(ano), st.st_size, st.st_mtime_ns])
+    payload = json.dumps({"prep_version": PREP_VERSION, "arquivos": partes})
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def carregar_df_modelo(
+    data_dir="../data", anos=range(2000, 2027), cache_dir="../data/cache", refresh=False
+):
+    """Devolve `preparar_df_modelo(load_sim_anos(data_dir, anos))`, lendo de /
+    gravando em um cache Parquet em `cache_dir` (`df_modelo_<chave>.parquet`
+    + `.json` com os diagnósticos). A chave depende dos anos, do tamanho e
+    mtime de cada CSV e de PREP_VERSION; mudou qualquer um, o cache antigo é
+    ignorado (e um novo é construído). `refresh=True` força a reconstrução.
+    """
+    anos = list(anos)
+    chave = _chave_cache(data_dir, anos)
+    cache_dir = Path(cache_dir)
+    parquet = cache_dir / f"df_modelo_{chave}.parquet"
+    sidecar = cache_dir / f"df_modelo_{chave}.json"
+    if not refresh and parquet.exists() and sidecar.exists():
+        df = pd.read_parquet(parquet)
+        df.attrs["diagnosticos"] = json.loads(sidecar.read_text(encoding="utf-8"))
+        return df
+    df = preparar_df_modelo(load_sim_anos(data_dir, anos))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tmp_parquet = parquet.with_name(parquet.name + ".tmp")
+    df.to_parquet(tmp_parquet, index=False)
+    os.replace(tmp_parquet, parquet)
+    sidecar.write_text(json.dumps(df.attrs["diagnosticos"]), encoding="utf-8")
+    return df
