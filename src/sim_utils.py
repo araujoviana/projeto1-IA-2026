@@ -20,6 +20,8 @@
 #     modelagem: idade vetorizada, ESC/RACACOR harmonizados, UF derivada do
 #     município, filtros com contabilidade) e carregar_df_modelo (cache
 #     Parquet com chave = anos + tamanho/mtime dos CSVs + PREP_VERSION)
+#   2026-09-23 — Matheus Araujo — adiciona FEATURE_COLUMNS e TARGET_COLUMN
+#     (conjunto único de entradas/rótulo dos modelos, sem vazamento)
 # =============================================================================
 import csv
 import hashlib
@@ -395,6 +397,13 @@ MODEL_COLUMNS = [
     "ano_arquivo",
     "capitulo_cid10",
 ]
+
+# Entradas e rótulo dos modelos (notebook 03). Só estas cinco variáveis
+# sociodemográficas entram como features: codmun6 (município fino),
+# ano_arquivo e qualquer campo da cadeia de causas do atestado (LINHAA-D,
+# CIRCOBITO, CAUSABAS_O) ficam de fora para não vazar o rótulo.
+FEATURE_COLUMNS = ["idade_anos", "sexo", "racacor", "escolaridade", "uf"]
+TARGET_COLUMN = "capitulo_cid10"
 
 
 def decode_idade_anos_vetorizado(idade):

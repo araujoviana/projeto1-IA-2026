@@ -13,6 +13,8 @@
 #   2026-09-23 — Matheus Araujo — testa preparar_df_modelo (idade
 #     vetorizada, mapeamentos ESC/RACACOR, UF, filtros e contabilidade) e o
 #     cache carregar_df_modelo (chave, invalidação, refresh)
+#   2026-09-23 — Matheus Araujo — testa FEATURE_COLUMNS/TARGET_COLUMN (sem
+#     vazamento de rótulo nas variáveis de entrada)
 # =============================================================================
 import sys
 from pathlib import Path
@@ -24,6 +26,8 @@ import pandas as pd
 
 import sim_utils
 from sim_utils import (
+    FEATURE_COLUMNS,
+    TARGET_COLUMN,
     carregar_df_modelo,
     causabas_to_chapter,
     decode_idade_anos,
@@ -495,3 +499,20 @@ def test_carregar_df_modelo_equivale_a_preparar_sobre_load_sim_anos(tmp_path):
     direto = preparar_df_modelo(load_sim_anos(dados, [2000, 2001]))
     via_cache = carregar_df_modelo(dados, [2000, 2001], tmp_path / "cache")
     pd.testing.assert_frame_equal(direto, via_cache)
+
+
+def test_feature_columns_sao_as_cinco_variaveis_sociodemograficas():
+    assert FEATURE_COLUMNS == ["idade_anos", "sexo", "racacor", "escolaridade", "uf"]
+    assert TARGET_COLUMN == "capitulo_cid10"
+
+
+def test_feature_columns_nao_vazam_o_rotulo():
+    proibidas = {"codmun6", "ano_arquivo", "capitulo_cid10"}
+    assert proibidas.isdisjoint(FEATURE_COLUMNS)
+    assert TARGET_COLUMN not in FEATURE_COLUMNS
+    for nome in FEATURE_COLUMNS:
+        maiusculo = nome.upper()
+        assert not maiusculo.startswith("LINHA")
+        assert maiusculo not in {"CIRCOBITO", "CAUSABAS", "CAUSABAS_O"}
+    # todas existem no frame de modelagem
+    assert set(FEATURE_COLUMNS + [TARGET_COLUMN]) <= set(sim_utils.MODEL_COLUMNS)
