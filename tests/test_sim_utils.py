@@ -15,6 +15,8 @@
 #     cache carregar_df_modelo (chave, invalidação, refresh)
 #   2026-09-23 — Matheus Araujo — testa FEATURE_COLUMNS/TARGET_COLUMN (sem
 #     vazamento de rótulo nas variáveis de entrada)
+#   2026-09-24 — Matheus Araujo — comentário deixa de citar o plano de
+#     implementação (referência ao data/README.md)
 # =============================================================================
 import sys
 from pathlib import Path
@@ -79,7 +81,7 @@ def test_causabas_to_chapter_causas_externas_com_asterisco():
 
 def test_causabas_to_chapter_codigo_cid9_fora_de_escopo():
     # Registros anteriores a 1996 usam CID-9 (puramente numérico) — fora do
-    # escopo do alvo de classificação (ver Scope note do plano).
+    # escopo do alvo de classificação (ver "Escopo temporal do projeto" em data/README.md).
     assert causabas_to_chapter("4239") == (None, None)
 
 

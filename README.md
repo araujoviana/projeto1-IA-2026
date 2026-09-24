@@ -79,6 +79,10 @@ Requer Python 3.13 ou superior e o [uv](https://docs.astral.sh/uv/).
    execução completa do notebook 03 leva cerca de 50 minutos em um servidor
    de 16 vCPUs.
 
+   O notebook 03 também exige bastante memória RAM: a matriz de treino com
+   *one-hot* denso (`float32`) ocupa cerca de 4,4 GB, além dos ajustes de
+   Random Forest e XGBoost sobre ela. Recomendamos 32 GB de RAM ou mais.
+
 ### Compilar o artigo
 
 ```bash
@@ -92,4 +96,4 @@ Fonte, licença (Creative Commons Atribuição) e cobertura estão em
 
 ## Status
 
-N1 (Parte 2) entregue; N2 planejada.
+N1 (Parte 2) em entrega; N2 planejada.

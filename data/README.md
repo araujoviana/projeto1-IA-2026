@@ -12,7 +12,7 @@
 
 27 arquivos `Mortalidade_Geral_<ano>.csv` para **2000–2026**
 (2026 parcial: 506.532 registros, ano ainda em andamento), ~8,5GB no total,
-não versionados no Git (ver `.gitignore:246-251`). Todos são óbitos **não
+não versionados no Git (ver as regras `data/*.csv` e `data/cache/` no `.gitignore`). Todos são óbitos **não
 fetais**, formato `;`-separado, `latin1`. O número de colunas cresce de 39
 (2000) para 88 (2024) ao longo da série, conforme o SIM incorporou novos
 campos — as 8 colunas usadas neste projeto (tabela abaixo) existem com o
@@ -32,8 +32,25 @@ que isso não é prioridade.
 - **Região:** Brasil, âmbito nacional (nenhum recorte por estado/região).
 - **Período:** 2000–2026 (2026 parcial).
 - **Classes do alvo:** capítulos CID-10 observados em `CAUSABAS` (ver
-  `sim_utils.causabas_to_chapter`) — a contagem exata de capítulos presentes
-  e seu desbalanceamento saem do notebook `01_eda_exploratoria.ipynb`.
+  `sim_utils.causabas_to_chapter`): 19 capítulos observados (os capítulos XIX
+  e XXI nunca aparecem como causa básica nos dados). Números completos no
+  "Resumo quantitativo" abaixo.
+
+## Resumo quantitativo (notebook `02_preparacao_dados.ipynb`)
+
+- **Registros brutos (2000–2026):** 32.629.071.
+- **Filtros de preparação:** descartados 15.842 registros com `SEXO` fora de
+  {1, 2}, 81.308 com `IDADE` desconhecida e 3 sem capítulo CID-10
+  derivável; restam **32.531.918** registros para modelagem.
+- **Classes:** 19 capítulos CID-10 observados; desbalanceamento de
+  **13.972x** entre a classe mais frequente (IX, circulatório) e a menos
+  frequente (VII, olho).
+- **Entrada geográfica do modelo:** `uf`, derivada de `CODMUNRES` (o município
+  entra no modelo no nível de UF: 27 categorias, nenhuma "Ignorado").
+- **Valores "Ignorado" (proporção pooled, todos os anos):** `RACACOR`
+  5,389%; `ESC` 26,409%. A ausência varia por ano (em 2000, por exemplo,
+  `RACACOR` ~16% e `ESC` ~20%), então esses percentuais pooled não devem ser
+  extrapolados para um ano específico.
 
 ## Escopo temporal do projeto
 
@@ -45,7 +62,8 @@ mapeamento limpo de capítulo entre os dois esquemas. Mesmo que 1979–1995
 fossem baixados depois, entrariam automaticamente excluídos do alvo de
 classificação por `sim_utils.causabas_to_chapter` (retorna `(None, None)`
 para códigos puramente numéricos) — mas validar uma estratégia para essa
-faixa fica para a Parte 3 (N2). Abaixo está o que foi tentado para baixar os anos programaticamente e por que não funcionou.
+faixa fica para a Parte 3 (N2). A seção seguinte resume o que foi tentado
+para baixar esses anos programaticamente e por que não funcionou.
 
 ## Como obter os anos que faltam (1979–1999, para quem continuar em N2)
 
@@ -70,8 +88,8 @@ históricos em lote de forma não-autenticada no momento:
   ano e sem contagem total — inadequada para reconstituir lotes históricos
   como 1996 ou 2000.
 - **FTP clássico do DataSUS** (`ftp.datasus.gov.br`, usado pelo pacote R
-  `microdatasus`): resolve no DNS mas a conexão TCP não completa a partir
-  deste ambiente de execução — pode funcionar normalmente de outra máquina
+  `microdatasus`): resolve no DNS, mas não foi possível baixar os arquivos
+  automaticamente em nossas tentativas — pode funcionar de outra máquina
   (ex.: o notebook do próprio integrante, ou Google Colab), então vale
   tentar de lá antes de desistir dessa rota.
 
@@ -90,7 +108,7 @@ históricos em lote de forma não-autenticada no momento:
 | `DTOBITO` | Data do óbito (ddmmaaaa) | |
 | `IDADE` | Idade codificada (1º dígito = unidade, 2 últimos = valor) | ver `sim_utils.decode_idade_anos` |
 | `SEXO` | 0=ignorado, 1=masculino, 2=feminino | |
-| `RACACOR` | Raça/cor autodeclarada | ~16% ausente |
-| `ESC` | Escolaridade | ~20% ausente |
+| `RACACOR` | Raça/cor autodeclarada | "Ignorado" pooled 5,389% (varia por ano; ~16% em 2000) |
+| `ESC` | Escolaridade | "Ignorado" pooled 26,409% (varia por ano; ~20% em 2000) |
 | `CODMUNRES` | Código IBGE do município de residência | |
 | `CAUSABAS` | Causa básica do óbito, CID-9 (até 1995) ou CID-10 (1996+) | ver `sim_utils.causabas_to_chapter` |

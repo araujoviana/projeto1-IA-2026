@@ -10,7 +10,7 @@
 #   2026-09-22 — Matheus Araujo — criação inicial do arquivo
 #   2026-09-22 — Matheus Araujo — load_sim_anos: corrige carga de 2022 e
 #     2023, cujos arquivos brutos não trazem linha de cabeçalho (descoberto
-#     ao rodar a EDA do notebook 01 sobre 2000-2026 — ver Task 3)
+#     ao rodar a EDA do notebook 01 sobre 2000-2026)
 #   2026-09-23 — Matheus Araujo — load_sim_anos: normaliza DTOBITO para
 #     texto ddmmaaaa de 8 dígitos (formato bruto varia: "dd-mm-aaaa" em
 #     2022/2023, inteiro sem zero à esquerda em 2024-2026)
@@ -22,6 +22,8 @@
 #     Parquet com chave = anos + tamanho/mtime dos CSVs + PREP_VERSION)
 #   2026-09-23 — Matheus Araujo — adiciona FEATURE_COLUMNS e TARGET_COLUMN
 #     (conjunto único de entradas/rótulo dos modelos, sem vazamento)
+#   2026-09-24 — Matheus Araujo — comentários/docstrings deixam de citar o
+#     plano de implementação (referências ao data/README.md)
 # =============================================================================
 import csv
 import hashlib
@@ -36,8 +38,8 @@ import pandas as pd
 
 # Colunas presentes com o mesmo nome em todos os anos do SIM conferidos
 # (2000, 2005, 2010, 2015, 2020, 2024, 2026), apesar do esquema geral ter
-# crescido de 39 para 88 colunas no período — ver Scope note do plano antes
-# de adicionar colunas aqui sem reconferir.
+# crescido de 39 para 88 colunas no período (ver data/README.md) — reconferir
+# antes de adicionar colunas aqui.
 CORE_COLUMNS = [
     "TIPOBITO",
     "DTOBITO",
@@ -122,7 +124,8 @@ def causabas_to_chapter(codigo_cid10):
     retorna (numeral_do_capitulo, descricao) do capítulo CID-10
     correspondente, ou (None, None) se o código não puder ser interpretado
     como CID-10 — em particular, códigos puramente numéricos (CID-9, usados
-    até 1995) estão fora de escopo por design (ver Scope note do plano).
+    até 1995) estão fora de escopo por design (ver "Escopo temporal do projeto" em
+    data/README.md).
     """
     if not isinstance(codigo_cid10, str) or not codigo_cid10.strip():
         return (None, None)
@@ -238,7 +241,7 @@ _ESQUEMA_2021 = [
 
 # Anos cujo CSV bruto do SIM (baixado de dados.gov.br) não traz uma linha de
 # cabeçalho — a primeira linha do arquivo já é um registro de dados. Achado
-# ao rodar load_sim_anos sobre 2000-2026 na EDA do notebook 01 (Task 3):
+# ao rodar load_sim_anos sobre 2000-2026 na EDA do notebook 01:
 # 2000-2021, 2024-2026 têm cabeçalho normal; 2022 e 2023 não.
 #
 # 2022 tem as mesmas 87 colunas de 2021 (CONTADOR ao final), só falta a

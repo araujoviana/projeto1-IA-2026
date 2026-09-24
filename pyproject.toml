@@ -1,7 +1,7 @@
 [project]
 name = "projeto1"
 version = "0.1.0"
-description = "Add your description here"
+description = "Classificação do capítulo CID-10 da causa básica de óbito (SIM, 2000-2026) com Random Forest e XGBoost"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

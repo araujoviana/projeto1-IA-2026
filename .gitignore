@@ -220,6 +220,9 @@ __marimo__/
 # --- Específico do projeto: só o que a rubrica pede ---
 # (artigo, dataset com descrição, notebooks, código-fonte com cabeçalho)
 
+# main.py: stub gerado por `uv init`, sem uso no projeto
+main.py
+
 # Material do professor (enunciado, modelos de rubrica), só para consulta
 refs/
 
