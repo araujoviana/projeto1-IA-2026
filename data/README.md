@@ -10,7 +10,7 @@
 
 ## O que está disponível localmente (atualizado 2026-09-22)
 
-25 arquivos `Mortalidade_Geral_<ano>.csv` para **2000–2023, 2025 e 2026**
+27 arquivos `Mortalidade_Geral_<ano>.csv` para **2000–2026**
 (2026 parcial: 506.532 registros, ano ainda em andamento), ~8,5GB no total,
 não versionados no Git (ver `.gitignore:246-251`). Todos são óbitos **não
 fetais**, formato `;`-separado, `latin1`. O número de colunas cresce de 39
@@ -18,6 +18,11 @@ fetais**, formato `;`-separado, `latin1`. O número de colunas cresce de 39
 campos — as 8 colunas usadas neste projeto (tabela abaixo) existem com o
 mesmo nome em todos os anos conferidos (2000, 2005, 2010, 2015, 2020, 2024,
 2026).
+
+Formatos divergentes entre anos (tratados em `src/sim_utils.py`): os CSVs de
+2022 e 2023 não têm linha de cabeçalho (2023 também não tem a coluna
+`NECROPSIA`), e `DTOBITO` vem como `ddmmaaaa`, `dd-mm-aaaa` (2022-2023) ou
+inteiro sem zero à esquerda (2024-2026).
 
 **Faltam 1979–1999** (não baixados). Ver "Escopo temporal" abaixo sobre por
 que isso não é prioridade.

@@ -8,6 +8,12 @@
 #
 # Changelog:
 #   2026-09-22 — Matheus Araujo — criação inicial do arquivo
+#   2026-09-22 — Matheus Araujo — load_sim_anos: corrige carga de 2022 e
+#     2023, cujos arquivos brutos não trazem linha de cabeçalho (descoberto
+#     ao rodar a EDA do notebook 01 sobre 2000-2026 — ver Task 3)
+#   2026-09-23 — Matheus Araujo — load_sim_anos: normaliza DTOBITO para
+#     texto ddmmaaaa de 8 dígitos (formato bruto varia: "dd-mm-aaaa" em
+#     2022/2023, inteiro sem zero à esquerda em 2024-2026)
 # =============================================================================
 import math
 import re
@@ -122,6 +128,120 @@ def causabas_to_chapter(codigo_cid10):
     return (None, None)
 
 
+# Esquema completo (89 colunas, na ordem em que aparecem no arquivo) do ano
+# de 2021 — usado como referência para reconstruir o cabeçalho de anos cujo
+# CSV bruto do SIM não traz uma linha de cabeçalho (ver _ESQUEMAS_SEM_CABECALHO
+# abaixo). Column names conferidos batendo o valor de cada posição contra o
+# domínio esperado do campo (datas, códigos de município, CID-10 etc.).
+_ESQUEMA_2021 = [
+    "ORIGEM",
+    "TIPOBITO",
+    "DTOBITO",
+    "HORAOBITO",
+    "NATURAL",
+    "CODMUNNATU",
+    "DTNASC",
+    "IDADE",
+    "SEXO",
+    "RACACOR",
+    "ESTCIV",
+    "ESC",
+    "ESC2010",
+    "SERIESCFAL",
+    "OCUP",
+    "CODMUNRES",
+    "LOCOCOR",
+    "CODESTAB",
+    "ESTABDESCR",
+    "CODMUNOCOR",
+    "IDADEMAE",
+    "ESCMAE",
+    "ESCMAE2010",
+    "SERIESCMAE",
+    "OCUPMAE",
+    "QTDFILVIVO",
+    "QTDFILMORT",
+    "GRAVIDEZ",
+    "SEMAGESTAC",
+    "GESTACAO",
+    "PARTO",
+    "OBITOPARTO",
+    "PESO",
+    "TPMORTEOCO",
+    "OBITOGRAV",
+    "OBITOPUERP",
+    "ASSISTMED",
+    "EXAME",
+    "CIRURGIA",
+    "NECROPSIA",
+    "LINHAA",
+    "LINHAB",
+    "LINHAC",
+    "LINHAD",
+    "LINHAII",
+    "CAUSABAS",
+    "CB_PRE",
+    "COMUNSVOIM",
+    "DTATESTADO",
+    "CIRCOBITO",
+    "ACIDTRAB",
+    "FONTE",
+    "NUMEROLOTE",
+    "TPPOS",
+    "DTINVESTIG",
+    "CAUSABAS_O",
+    "DTCADASTRO",
+    "ATESTANTE",
+    "STCODIFICA",
+    "CODIFICADO",
+    "VERSAOSIST",
+    "VERSAOSCB",
+    "FONTEINV",
+    "DTRECEBIM",
+    "ATESTADO",
+    "DTRECORIGA",
+    "CAUSAMAT",
+    "ESCMAEAGR1",
+    "ESCFALAGR1",
+    "STDOEPIDEM",
+    "STDONOVA",
+    "DIFDATA",
+    "NUDIASOBCO",
+    "NUDIASOBIN",
+    "DTCADINV",
+    "TPOBITOCOR",
+    "DTCONINV",
+    "FONTES",
+    "TPRESGINFO",
+    "TPNIVELINV",
+    "NUDIASINF",
+    "DTCADINF",
+    "MORTEPARTO",
+    "DTCONCASO",
+    "FONTESINF",
+    "ALTCAUSA",
+    "CONTADOR",
+]
+
+# Anos cujo CSV bruto do SIM (baixado de dados.gov.br) não traz uma linha de
+# cabeçalho — a primeira linha do arquivo já é um registro de dados. Achado
+# ao rodar load_sim_anos sobre 2000-2026 na EDA do notebook 01 (Task 3):
+# 2000-2021, 2024-2026 têm cabeçalho normal; 2022 e 2023 não.
+#
+# 2022 tem as mesmas 87 colunas de 2021 (CONTADOR ao final), só falta a
+# linha de cabeçalho. 2023 tem 86 colunas: CONTADOR aparece na 1ª posição
+# (não ao final) e a coluna NECROPSIA não existe no arquivo, deslocando
+# todas as colunas seguintes uma posição para trás. Ambos os mapeamentos
+# foram conferidos comparando o valor de cada posição, em várias linhas,
+# contra o domínio esperado do campo (ex.: SEXO ∈ {0,1,2}, datas em
+# DD-MM-AAAA, CAUSABAS parecendo um código CID-10).
+_ESQUEMAS_SEM_CABECALHO = {
+    2022: _ESQUEMA_2021,
+    2023: ["CONTADOR"]
+    + [c for c in _ESQUEMA_2021 if c not in ("CONTADOR", "NECROPSIA")],
+}
+
+
 def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
     """Carrega e concatena os arquivos `Mortalidade_Geral_<ano>.csv` de
     vários anos a partir de `data_dir`, mantendo apenas `colunas` (por
@@ -133,6 +253,13 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
     Levanta FileNotFoundError, citando o ano e o caminho esperado, se algum
     arquivo não existir em `data_dir` — evita uma mensagem genérica do
     pandas que não diz qual ano falhou.
+
+    Trata corretamente os anos sem linha de cabeçalho no arquivo bruto
+    (2022 e 2023 — ver _ESQUEMAS_SEM_CABECALHO), reconstruindo os nomes de
+    coluna a partir do esquema completo já conferido para esses anos.
+
+    DTOBITO é sempre devolvido como texto ddmmaaaa de 8 dígitos (o formato
+    bruto varia por ano — ver comentário no corpo da função).
     """
     frames = []
     for ano in anos:
@@ -143,9 +270,35 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
                 f"(esperado: {caminho.name}) — baixe-o do dados.gov.br e "
                 "salve com esse nome (ver data/README.md)."
             )
-        df_ano = pd.read_csv(
-            caminho, sep=";", encoding="latin1", usecols=colunas, low_memory=False
-        )
+        # DTOBITO vem em formatos diferentes conforme o ano (ddmmaaaa com
+        # zero à esquerda em 2000-2021, "dd-mm-aaaa" em 2022-2023, inteiro
+        # sem zero à esquerda em 2024-2026); lê-se como texto e normaliza
+        # para ddmmaaaa de 8 dígitos abaixo.
+        dtype = {"DTOBITO": str} if "DTOBITO" in colunas else None
+        if ano in _ESQUEMAS_SEM_CABECALHO:
+            df_ano = pd.read_csv(
+                caminho,
+                sep=";",
+                encoding="latin1",
+                header=None,
+                names=_ESQUEMAS_SEM_CABECALHO[ano],
+                usecols=colunas,
+                dtype=dtype,
+                low_memory=False,
+            )
+        else:
+            df_ano = pd.read_csv(
+                caminho,
+                sep=";",
+                encoding="latin1",
+                usecols=colunas,
+                dtype=dtype,
+                low_memory=False,
+            )
+        if "DTOBITO" in df_ano.columns:
+            df_ano["DTOBITO"] = (
+                df_ano["DTOBITO"].str.replace("-", "", regex=False).str.zfill(8)
+            )
         df_ano["ANO_ARQUIVO"] = ano
         frames.append(df_ano)
     return pd.concat(frames, ignore_index=True)
