@@ -15,6 +15,12 @@
 %
 % Changelog:
 %   2026-09-24 — Matheus Araujo — criação do artigo parcial (SBC)
+%   2026-09-24 — Matheus Araujo — revisão 1: ajustes de layout (bloco de
+%     autores, endereço e Tabela 4 dentro da largura do texto), babel
+%     brazilian, distinção entre weighted quantile sketch e tree_method
+%     "hist", expectativas apresentadas como plausíveis e não como
+%     pré-registradas, argumento do CEP apoiado nos critérios da norma, e
+%     nota sobre o intervalo do título do conjunto no portal
 % =============================================================================
 
 \documentclass[12pt]{article}
@@ -22,20 +28,20 @@
 \usepackage{sbc-template}
 \usepackage{graphicx,url}
 \usepackage[utf8]{inputenc}
-\usepackage[brazil]{babel}
+\usepackage[brazilian]{babel}
 
 \sloppy
 
 \title{Classificação da Causa Básica de Óbito pelo Capítulo da CID-10:\\
   uma Comparação entre Random Forest e XGBoost}
 
-\author{Arthur Meneses Neves (RA 10425727), Danilo Oliveira Santos (RA 10410905),\\
-  Guilherme Araujo Castro (RA 10427775), João Victor Vidal Barbosa (RA 10410165),\\
-  Matheus Gabriel Viana Araujo (RA 10420444)}
+\author{Arthur Meneses Neves (10425727), Danilo Oliveira Santos (10410905),\\
+  Guilherme Araujo Castro (10427775), João Victor Vidal Barbosa (10410165),\\
+  Matheus Gabriel Viana Araujo (10420444)}
 
 %% REVISAR PELO GRUPO: os e-mails institucionais estão pendentes e são
 %% preenchidos na Tabela de integrantes, no início da Seção 1.
-\address{Faculdade de Computação e Informática --
+\address{Faculdade de Computação e Informática\\
   Universidade Presbiteriana Mackenzie (UPM)\\
   São Paulo -- SP -- Brasil
   \email{e-mails institucionais: ver Tabela~\ref{tab:integrantes}}
@@ -229,10 +235,14 @@ método robusto a atributos irrelevantes e de treino naturalmente paralelizável
 \textbf{XGBoost}~\cite{chen2016} implementa \emph{gradient boosting}: as
 árvores são construídas em sequência, cada uma ajustada ao erro residual das
 anteriores, com regularização explícita da complexidade. O trabalho original
-descreve um algoritmo consciente de esparsidade e um esquema aproximado de
-busca de pontos de corte por histogramas (\emph{weighted quantile sketch}),
-que é justamente o que torna o método viável em bases com dezenas de milhões
-de linhas, como a nossa.
+descreve um algoritmo consciente de esparsidade, para dados esparsos, e um
+esquema aproximado de busca de pontos de corte baseado em quantis ponderados
+(\emph{weighted quantile sketch}), além de otimizações de acesso a cache,
+compressão e particionamento dos dados --- o conjunto dessas técnicas é o que
+torna o método viável em bases com dezenas de milhões de linhas, como a nossa.
+Nos experimentos deste trabalho usamos o modo \texttt{tree\_method = "hist"},
+que é um mecanismo distinto, de discretização dos atributos em histogramas de
+\emph{bins}, também voltado a bases grandes.
 
 Dois conceitos adicionais estruturam a metodologia. O primeiro é o
 \textbf{desbalanceamento de classes}: quando uma classe domina a base, a
@@ -393,8 +403,8 @@ avaliamos em 2023, 2025 e 2026, para verificar se o desempenho se mantém em
 anos nunca vistos. Essa checagem \emph{não substitui} a divisão estratificada;
 ela responde a outra pergunta e é apresentada separadamente.
 
-\textbf{Resultados esperados.} Antes de treinar, a expectativa registrada
-pelo grupo era de desempenho modesto em termos absolutos, mas claramente
+\textbf{Resultados esperados.} Dado o conjunto restrito de atributos, era
+plausível esperar desempenho modesto em termos absolutos, mas claramente
 superior ao baseline em F1-macro, com acerto melhor nos capítulos fortemente
 associados a idade e sexo (gravidez e parto; afecções perinatais; causas
 externas) e acerto fraco nas causas de adultos e idosos, que competem entre si
@@ -407,6 +417,10 @@ o que ocorreu.
 \textbf{Origem e endereço.} Arquivos ``Mortalidade Geral'' do SIM, mantido
 pelo Ministério da Saúde, obtidos no Portal Brasileiro de Dados Abertos em
 \url{https://dados.gov.br/dados/conjuntos-dados/sim-1979-2019}~\cite{sim_dadosgov}.
+O título do conjunto no portal menciona o intervalo 1979--2019, mas a página
+disponibiliza também os arquivos anuais posteriores: os arquivos efetivamente
+baixados e usados aqui cobrem 2000--2026, conforme registrado em
+\texttt{data/README.md}.
 \textbf{Licença:} Creative Commons Atribuição (CC-BY). \textbf{Formato:} CSV
 separado por ponto e vírgula, codificação \texttt{latin1}, um arquivo por ano.
 \textbf{Volume:} 27 arquivos (2000 a 2026), aproximadamente 8,5 GB,
@@ -658,9 +672,13 @@ público, nos termos da Lei nº 12.527, de 18 de novembro de 2011'' (inciso II) 
 a ``pesquisa que utilize informações de domínio público'' (inciso III).
 Registre-se que essa resolução dispõe especificamente sobre pesquisas em
 Ciências Humanas e Sociais, de modo que sua aplicação a este projeto é
-analógica. Somando esse dispositivo à avaliação do professor orientador no
-parecer da Parte 1, o grupo conclui que, em princípio, a submissão ao CEP
-não é necessária. Isso mudaria se o projeto passasse a usar registros
+analógica. Ainda assim, os três critérios que sustentam a dispensa se aplicam
+integralmente aqui: os dados são \emph{públicos}, \emph{secundários} (não
+foram coletados pelo grupo, nem houve contato com participantes) e
+\emph{anonimizados}, no sentido do art.~5º, inciso III, da
+LGPD~\cite{lgpd}. Por esses critérios, e em linha com a orientação da
+disciplina, o grupo conclui que, em princípio, a submissão ao CEP não é
+necessária. Isso mudaria se o projeto passasse a usar registros
 identificáveis ou de acesso restrito, cruzasse o SIM com outra base ou
 envolvesse contato direto com pessoas; nenhuma dessas condições se aplica
 hoje, e, se alguma passar a valer, a necessidade de submissão deve ser
@@ -684,6 +702,7 @@ amostra balanceados.
 \caption{Comparação dos três modelos no conjunto de teste (6.506.384 linhas,
   divisão estratificada 80/20). A acurácia consta apenas como referência.}
 \label{tab:comparacao}
+\small
 \begin{tabular}{|l|r|r|r|r|}
 \hline
 \textbf{Modelo} & \textbf{F1-macro} & \textbf{Acurácia} & \textbf{Recall macro}
@@ -714,8 +733,8 @@ com recall exatamente zero, embora no Random Forest os capítulos III (0,0004)
 e IX (0,0013) tenham recall praticamente nulo. Apenas os capítulos XV
 (gravidez, parto e puerpério) e XVI (perinatal) ultrapassam 0,5 de recall nos
 dois modelos; o capítulo XX (causas externas) ultrapassa 0,5 somente no Random
-Forest (0,5363 contra 0,4975 do XGBoost). Esse padrão confirma a expectativa
-registrada na Seção~\ref{sec:metodologia}: idade e sexo quase determinam XV e
+Forest (0,5363 contra 0,4975 do XGBoost). Esse padrão corresponde ao que era
+plausível esperar (Seção~\ref{sec:metodologia}): idade e sexo quase determinam XV e
 XVI, mas dizem pouco sobre as causas que competem entre si na população adulta
 e idosa.
 
