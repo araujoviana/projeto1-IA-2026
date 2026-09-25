@@ -1,5 +1,7 @@
 # Classificação da causa básica de óbito: Random Forest vs. XGBoost
 
+# AINDA FALTA COLOCAR OS ARTIGOS NESSE REPO!!
+
 Projeto de Inteligência Artificial (7º CC, Prof. Ivan Carlos Alcântara de
 Oliveira), Universidade Presbiteriana Mackenzie.
 
