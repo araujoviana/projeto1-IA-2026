@@ -1,7 +1,5 @@
 # Classificação da causa básica de óbito: Random Forest vs. XGBoost
 
-# AINDA FALTA COLOCAR OS ARTIGOS NESSE REPO!!
-
 Projeto de Inteligência Artificial (7º CC, Prof. Ivan Carlos Alcântara de
 Oliveira), Universidade Presbiteriana Mackenzie.
 
@@ -41,3 +39,7 @@ Os CSVs `Mortalidade_Geral_<ano>.csv` (2000 a 2026) precisam ser baixados
 pelo navegador em https://dados.gov.br/dados/conjuntos-dados/sim-1979-2019 e
 colocados em `data/`. O notebook 03 usa bastante memória (32 GB ou mais) e
 leva cerca de 50 min em 16 vCPUs.
+
+## Artigo Parcial
+
+[Abrir Artigo Parcial](https://github.com/araujoviana/projeto1-IA-2026/blob/main/docs/ArtigoParcial-Etapa2.pdf)
