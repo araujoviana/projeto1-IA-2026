@@ -7,16 +7,11 @@
 # CID-10.
 #
 # Changelog:
-#   2026-09-22 — Matheus Araujo — criação inicial do arquivo
-#   2026-09-22 — Matheus Araujo — testa load_sim_anos para os anos sem
-#     cabeçalho (2022, 2023), achado ao rodar a EDA sobre dados reais
-#   2026-09-23 — Matheus Araujo — testa preparar_df_modelo (idade
-#     vetorizada, mapeamentos ESC/RACACOR, UF, filtros e contabilidade) e o
-#     cache carregar_df_modelo (chave, invalidação, refresh)
-#   2026-09-23 — Matheus Araujo — testa FEATURE_COLUMNS/TARGET_COLUMN (sem
-#     vazamento de rótulo nas variáveis de entrada)
-#   2026-09-24 — Matheus Araujo — comentário deixa de citar o plano de
-#     implementação (referência ao data/README.md)
+#   2026-09-22 - Matheus Araujo - criação: testes de idade e CAUSABAS
+#   2026-09-22 - Matheus Araujo - testes de load_sim_anos (anos sem cabeçalho)
+#   2026-09-23 - Matheus Araujo - testes de preparar_df_modelo e do cache
+#   2026-09-23 - Matheus Araujo - testes de FEATURE_COLUMNS e TARGET_COLUMN
+#   2026-09-24 - Matheus Araujo - ajuste de comentários
 # =============================================================================
 import sys
 from pathlib import Path
@@ -142,7 +137,7 @@ def _escrever_csv_sem_cabecalho(caminho, esquema, valores_por_coluna):
 
 def test_load_sim_anos_ano_2022_sem_cabecalho():
     # 2022 não tem cabeçalho, mas usa o mesmo esquema de 87 colunas de 2021
-    # (CONTADOR ao final) — ver _ESQUEMAS_SEM_CABECALHO.
+    # (CONTADOR ao final). Ver _ESQUEMAS_SEM_CABECALHO.
     import tempfile
 
     valores = {
@@ -172,7 +167,7 @@ def test_load_sim_anos_ano_2022_sem_cabecalho():
 
 def test_load_sim_anos_ano_2023_sem_cabecalho_e_sem_necropsia():
     # 2023 não tem cabeçalho e não tem a coluna NECROPSIA (86 colunas,
-    # CONTADOR na 1ª posição) — ver _ESQUEMAS_SEM_CABECALHO.
+    # CONTADOR na 1ª posição). Ver _ESQUEMAS_SEM_CABECALHO.
     import tempfile
 
     valores = {
