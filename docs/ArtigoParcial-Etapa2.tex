@@ -211,6 +211,32 @@ A análise exploratória (notebook 01) revelou problemas de qualidade que defini
 
 A preparação é feita por uma única função, compartilhada por todos os notebooks, e seu resultado é armazenado em cache (Parquet) cuja chave inclui o tamanho e a data de modificação de cada CSV e uma constante de versão, de modo que um cache desatualizado nunca é usado silenciosamente. As decisões foram:
 
+\begin{itemize}
+  \item \textbf{Idade:} decodificada para anos completos a partir do código do
+    SIM (o primeiro dígito indica a unidade: minutos, horas, dias, meses ou
+    anos; os dois últimos, o valor).
+  \item \textbf{Escolaridade e raça/cor:} mapeadas para categorias nomeadas,
+    com \textbf{``Ignorado'' como categoria explícita} em vez de imputação.
+    Nenhuma linha é descartada por esse motivo: ``Ignorado'' soma 26,409\%
+    em \texttt{ESC} (8.616.946 registros) e 5,389\% em \texttt{RACACOR}
+    (1.758.238). Descartar essas linhas enviesaria a amostra contra os anos
+    iniciais da série. O código 0 de \texttt{ESC}, que aparece apenas em 2009
+    a 2012 e em 2014 (231.933 registros, 0,711\%) e não consta do dicionário
+    do SIM, foi mapeado para ``Ignorado''; essa decisão é discutível, está
+    isolada em uma única constante do código e pode ser revista.
+  \item \textbf{Município:} truncado para 6 dígitos e agregado em
+    \textbf{unidade da federação}. O modelo nunca vê o município: são mais de
+    5.500 municípios, o que inviabilizaria a codificação \emph{one-hot} e,
+    principalmente, aumentaria o risco de reidentificação em células pequenas
+    (Seção~\ref{sec:etica}). As 27 UFs estão todas presentes, de São Paulo
+    (23,196\% dos registros) a Roraima (0,175\%).
+  \item \textbf{Filtros, com contabilidade.} Foram descartados 15.842
+    registros com \texttt{SEXO} ignorado (0,0486\%), 81.308 com idade
+    desconhecida (0,2492\%) e 3 cujo \texttt{CAUSABAS} não corresponde a
+    nenhum capítulo da CID-10. O total descartado é de 97.153 registros
+    (0,2977\% do bruto), restando \textbf{32.531.918 registros e 19 classes}, sem nenhum valor nulo nas colunas do quadro de modelagem.
+\end{itemize}
+
 A Tabela~\ref{tab:classes} e a Figura~\ref{fig:distribuicao} mostram as 19 classes. O capítulo IX (doenças do aparelho circulatório) concentra 27,0141\% dos registros, e o capítulo VII (doenças do olho e anexos), 0,0019\%, uma razão de 13.972 entre o maior e o menor. Cinco capítulos ficam abaixo de 0,5\% dos registros. É esse quadro que justifica as escolhas metodológicas: com 19 classes e essa razão de desbalanceamento, são necessários um baseline explícito, pesos balanceados e métricas macro-agregadas para que o resultado signifique alguma coisa.
 
 \begin{table}[ht]
