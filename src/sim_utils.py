@@ -2,9 +2,10 @@
 # Integrantes: Arthur Meneses Neves, Danilo Oliveira Santos, Matheus Gabriel
 # Viana Araujo, João Victor Vidal Barbosa, Guilherme Araujo Castro
 #
-# Síntese: Funções de decodificação de campos do SIM (Sistema de Informação
-# sobre Mortalidade): idade codificada (IDADE) e mapeamento da causa básica
-# de óbito (CAUSABAS, CID-10) para capítulo CID-10.
+# Síntese: Funções auxiliares do projeto sobre o SIM (Sistema de Informação
+# sobre Mortalidade): decodificação de IDADE e CAUSABAS (capítulo da CID-10),
+# leitura dos CSVs anuais e preparação do dataframe de modelagem, com cache
+# em Parquet.
 #
 # Changelog:
 #   2026-09-22 - Matheus Araujo - criação: decodificação de IDADE e CAUSABAS
@@ -15,6 +16,7 @@
 #     (cache em Parquet)
 #   2026-09-23 - Matheus Araujo - FEATURE_COLUMNS e TARGET_COLUMN
 #   2026-09-24 - Matheus Araujo - ajuste de comentários e docstrings
+#   2026-09-25 - Matheus Araujo - revisão final dos comentários
 # =============================================================================
 import csv
 import hashlib
@@ -27,10 +29,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# Colunas que existem com o mesmo nome em todos os anos (conferido em 2000,
-# 2005, 2010, 2015, 2020, 2024 e 2026). O esquema completo cresceu de 39 para
-# 88 colunas no período (ver data/README.md); reconferir antes de adicionar
-# colunas aqui.
+# Colunas com o mesmo nome em todos os anos. O esquema completo cresceu de 39
+# para 88 colunas no período (ver data/README.md); reconferir antes de
+# acrescentar colunas aqui.
 CORE_COLUMNS = [
     "TIPOBITO",
     "DTOBITO",
@@ -42,10 +43,9 @@ CORE_COLUMNS = [
     "CAUSABAS",
 ]
 
-# (numeral do capítulo, início da faixa, fim da faixa, descrição em português)
-# Faixas da CID-10 (OMS). Comparar as strings "letra + 2 dígitos" funciona
-# porque a ordem alfabética coincide com a ordem das faixas (ex.: o capítulo II
-# vai de C00 a D48).
+# Capítulos da CID-10 (OMS): (numeral, início, fim, descrição). Comparar as
+# strings "letra + 2 dígitos" funciona porque a ordem alfabética coincide com
+# a das faixas (ex.: o capítulo II vai de C00 a D48).
 _CHAPTER_RANGES = [
     ("I", "A00", "B99", "Doenças infecciosas e parasitárias"),
     ("II", "C00", "D48", "Neoplasias (tumores)"),
@@ -131,10 +131,8 @@ def causabas_to_chapter(codigo_cid10):
     return (None, None)
 
 
-# Colunas de 2021 (87, na ordem do arquivo), usadas para reconstruir o
-# cabeçalho dos anos cujo CSV não tem linha de cabeçalho (ver
-# _ESQUEMAS_SEM_CABECALHO). Os nomes foram conferidos comparando o valor de
-# cada posição com o que o campo deveria conter (datas, município, CID-10).
+# Colunas de 2021 (87, na ordem do arquivo). Servem de cabeçalho para os anos
+# cujo CSV não tem (ver _ESQUEMAS_SEM_CABECALHO).
 _ESQUEMA_2021 = [
     "ORIGEM",
     "TIPOBITO",
@@ -225,13 +223,10 @@ _ESQUEMA_2021 = [
     "CONTADOR",
 ]
 
-# Os CSVs de 2022 e 2023 não têm linha de cabeçalho (a primeira linha já é um
-# óbito); os demais anos têm. Descoberto ao rodar a EDA do notebook 01.
-#
-# 2022 tem as mesmas 87 colunas de 2021. 2023 tem 86: CONTADOR vem na primeira
-# posição e NECROPSIA não existe, o que desloca as colunas seguintes. Os dois
-# mapeamentos foram conferidos olhando o valor de cada posição em várias linhas
-# (SEXO em {0,1,2}, datas em DD-MM-AAAA, CAUSABAS parecido com CID-10).
+# Os CSVs de 2022 e 2023 não têm linha de cabeçalho. 2022 tem as mesmas 87
+# colunas de 2021; 2023 tem 86 (CONTADOR vem primeiro e NECROPSIA não existe).
+# Os mapeamentos foram conferidos olhando os valores de cada posição (SEXO em
+# {0,1,2}, datas, CAUSABAS parecido com CID-10).
 _ESQUEMAS_SEM_CABECALHO = {
     2022: _ESQUEMA_2021,
     2023: ["CONTADOR"]
@@ -240,10 +235,9 @@ _ESQUEMAS_SEM_CABECALHO = {
 
 
 def _validar_primeira_linha_sem_cabecalho(caminho, ano, esquema):
-    """Lê a primeira linha de um CSV de _ESQUEMAS_SEM_CABECALHO e confere se o
-    número de campos bate com o esquema e se ela é mesmo um registro, não um
-    cabeçalho. Sem isso, um arquivo com outro layout seria lido errado sem
-    aviso."""
+    """Confere se a primeira linha do CSV tem o número de campos do esquema e
+    se é um registro, não um cabeçalho. Evita ler errado um arquivo com outro
+    layout."""
     with open(caminho, encoding="latin1", newline="") as f:
         primeira = next(csv.reader(f, delimiter=";"), [])
     if len(primeira) != len(esquema):
@@ -264,8 +258,7 @@ def _validar_primeira_linha_sem_cabecalho(caminho, ano, esquema):
 
 
 def _caminho_ano(data_dir, ano):
-    """Caminho do CSV do ano em `data_dir`; levanta FileNotFoundError citando
-    o ano se o arquivo não existir."""
+    """Caminho do CSV do ano; levanta FileNotFoundError se não existir."""
     caminho = Path(data_dir) / f"Mortalidade_Geral_{ano}.csv"
     if not caminho.exists():
         raise FileNotFoundError(
@@ -277,21 +270,18 @@ def _caminho_ano(data_dir, ano):
 
 
 def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
-    """Carrega e concatena os `Mortalidade_Geral_<ano>.csv` dos `anos` em
-    `data_dir`, mantendo só `colunas` (por padrão CORE_COLUMNS) e
+    """Lê e concatena os CSVs dos `anos`, mantendo só `colunas` e
     acrescentando `ANO_ARQUIVO`, o ano do arquivo (pode diferir do ano de
     DTOBITO por causa de registros tardios).
 
-    Levanta FileNotFoundError citando o ano se faltar algum arquivo. Os anos
-    sem cabeçalho (2022 e 2023) recebem os nomes de _ESQUEMAS_SEM_CABECALHO.
-    DTOBITO sai sempre como texto ddmmaaaa de 8 dígitos.
+    Os anos sem cabeçalho usam _ESQUEMAS_SEM_CABECALHO. DTOBITO sai como texto
+    ddmmaaaa.
     """
     frames = []
     for ano in anos:
         caminho = _caminho_ano(data_dir, ano)
-        # O formato de DTOBITO muda com o ano (ddmmaaaa em 2000-2021,
-        # dd-mm-aaaa em 2022-2023, inteiro sem zero à esquerda em 2024-2026).
-        # Lê como texto e normaliza para ddmmaaaa mais abaixo.
+        # O formato de DTOBITO muda com o ano (ddmmaaaa, dd-mm-aaaa ou inteiro
+        # sem zero à esquerda); lê como texto e normaliza abaixo.
         dtype = {"DTOBITO": str} if "DTOBITO" in colunas else None
         if ano in _ESQUEMAS_SEM_CABECALHO:
             _validar_primeira_linha_sem_cabecalho(
@@ -329,15 +319,12 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
 # Preparação para modelagem
 # =============================================================================
 
-# Aumentar sempre que mudar a lógica de load_sim_anos, preparar_df_modelo ou
-# os mapeamentos abaixo. A versão entra na chave do cache Parquet, então um
-# cache antigo não é reaproveitado por engano.
+# Aumentar ao mudar a lógica de leitura, de preparação ou os mapeamentos
+# abaixo; a versão entra na chave do cache Parquet.
 PREP_VERSION = "1"
 
-# Escolaridade (ESC), pelo dicionário do SIM: 1 nenhuma, 2 de 1 a 3 anos, 3 de
-# 4 a 7, 4 de 8 a 11, 5 12 ou mais, 9 ignorado. Qualquer outro valor (9, NaN,
-# 0, 'A', '8') vira "Ignorado". O 0 só aparece em alguns anos e não está no
-# dicionário.
+# Escolaridade (ESC) pelo dicionário do SIM. Códigos fora do mapa (9, 0, NaN,
+# letras) viram "Ignorado".
 ESC_MAP = {
     1: "Nenhuma",
     2: "1a3anos",
@@ -345,8 +332,7 @@ ESC_MAP = {
     4: "8a11anos",
     5: "12+anos",
 }
-# Raça/cor: 1 branca, 2 preta, 3 amarela, 4 parda, 5 indígena. O resto vira
-# "Ignorado".
+# Raça/cor pelo dicionário do SIM; o que não está no mapa vira "Ignorado".
 RACACOR_MAP = {1: "Branca", 2: "Preta", 3: "Amarela", 4: "Parda", 5: "Indígena"}
 SEXO_MAP = {1: "Masculino", 2: "Feminino"}
 ROTULO_IGNORADO = "Ignorado"
@@ -370,10 +356,10 @@ MODEL_COLUMNS = [
     "capitulo_cid10",
 ]
 
-# Entradas e rótulo dos modelos (notebook 03). Só estas cinco variáveis entram
-# como features. codmun6, ano_arquivo e os campos da cadeia de causas do
-# atestado (LINHAA a LINHAD, CIRCOBITO, CAUSABAS_O) ficam de fora para não
-# vazar o rótulo.
+# Entradas e rótulo dos modelos (notebook 03). Só estas cinco variáveis são
+# features. Os campos que revelam a causa (LINHAA a LINHAD, CIRCOBITO,
+# CAUSABAS_O) nunca são lidos, pois não estão em CORE_COLUMNS. codmun6 e
+# ano_arquivo ficam no dataframe para análise, mas não entram como feature.
 FEATURE_COLUMNS = ["idade_anos", "sexo", "racacor", "escolaridade", "uf"]
 TARGET_COLUMN = "capitulo_cid10"
 
