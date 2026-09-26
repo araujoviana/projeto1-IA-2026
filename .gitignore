@@ -226,7 +226,7 @@ main.py
 # Material do professor (enunciado, modelos de rubrica), só para consulta
 refs/
 
-# Anotações e rascunhos locais (o artigo fica em docs/artigo/)
+# Anotações e rascunhos locais (o artigo fica em docs/)
 NOTES.md
 TODO.md
 notes/
@@ -247,11 +247,13 @@ data/*.parquet
 # Cache Parquet gerado por sim_utils.carregar_df_modelo
 data/cache/
 
-# Artefatos de compilação LaTeX do artigo (o artigo.pdf, esse sim, é versionado)
-docs/artigo/*.aux
-docs/artigo/*.bbl
-docs/artigo/*.blg
-docs/artigo/*.out
-docs/artigo/*.toc
-docs/artigo/*.log
-docs/artigo/*.synctex.gz
+# Artefatos de compilação LaTeX do artigo (o PDF e o .tex, esses sim, são versionados)
+docs/*.aux
+docs/*.bbl
+docs/*.blg
+docs/*.out
+docs/*.toc
+docs/*.log
+docs/*.fdb_latexmk
+docs/*.fls
+docs/*.synctex.gz

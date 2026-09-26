@@ -24,6 +24,7 @@ baseline de classe majoritária. Os resultados parciais (N1) estão no notebook 
 - `notebooks/03_resultados_parciais.ipynb`: baseline, Random Forest e XGBoost.
 - `src/sim_utils.py`: leitura e decodificação dos dados do SIM.
 - `tests/`: testes do `sim_utils.py`.
+- `docs/`: Artigo Parcial (PDF e fontes LaTeX).
 
 ## Como rodar
 
