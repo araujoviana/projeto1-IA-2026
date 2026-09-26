@@ -39,7 +39,7 @@
   Guilherme Araujo Castro (10427775), João Victor Vidal Barbosa (10410165),\\
   Matheus Gabriel Viana Araujo (10420444)}
 
-\address{Faculdade de Computação e Informática(FCI)\\
+\address{Faculdade de Computação e Informática (FCI)\\
 Universidade Presbiteriana Mackenzie (UPM)\\
   São Paulo - SP - Brasil
 \email{\{10425727,10410905,10427775,10410165,10420444\}@mackenzista.com.br}
@@ -60,7 +60,7 @@ Universidade Presbiteriana Mackenzie (UPM)\\
 O Sistema de Informação sobre Mortalidade (SIM) é o sistema do Ministério da Saúde que consolida as Declarações de Óbito emitidas no país. Seus microdados individuais estão disponíveis desde 1996, obtidos do DATASUS e publicados como dados abertos~\cite{pcdas_sim,sim_dadosgov}. Cada registro traz, além da causa
 básica do óbito codificada segundo a Classificação Internacional de Doenças, 10ª revisão (CID-10)~\cite{who_cid10}, atributos sociodemográficos do falecido e dados de residência e ocorrência.
 
-A CID-10 organiza os códigos individuais em capítulos, que agrupam causas afins, doenças do aparelho circulatório, neoplasias, causas externas, e assim por diante. Trabalhar no nível de capítulo transforma em um problema com poucas dezenas de classes, tratável com os algoritmos de aprendizado supervisionado vistos na disciplina. Este projeto trabalha com o recorte Brasil, âmbito nacional, período de 2000 a 2026.
+A CID-10 organiza os códigos individuais em capítulos, que agrupam causas afins: doenças do aparelho circulatório, neoplasias, causas externas, e assim por diante. Trabalhar no nível de capítulo transforma a tarefa em um problema com poucas dezenas de classes, tratável com os algoritmos de aprendizado supervisionado vistos na disciplina. Este projeto trabalha com o recorte Brasil, âmbito nacional, período de 2000 a 2026.
 
 \subsection{Justificativa}
 
@@ -81,7 +81,7 @@ sociodemográficas.
 Especificamente, o objetivo é classificar a causa básica de óbito, agregada em seu capítulo da CID-10, a partir de atributos sociodemográficos registrados no SIM. Explicitamente:
 
 \begin{itemize}
-  \item Variáveis de entrada (atributos): idade em anos completos (numérica), sexo (masculino, feminino), raça/cor autodeclarada (branca,preta, amarela, parda, indígena, ignorado), escolaridade (nenhuma, 1 a 3 anos, 4 a 7 anos, 8 a 11 anos, 12 anos ou mais, ignorado) e unidade da federação de residência, derivada do código do município de residência (27 categorias). São cinco variáveis.
+  \item Variáveis de entrada (atributos): idade em anos completos (numérica), sexo (masculino, feminino), raça/cor autodeclarada (branca, preta, amarela, parda, indígena, ignorado), escolaridade (nenhuma, 1 a 3 anos, 4 a 7 anos, 8 a 11 anos, 12 anos ou mais, ignorado) e unidade da federação de residência, derivada do código do município de residência (27 categorias). São cinco variáveis.
   \item Variável de saída (classes): o capítulo da CID-10 da causa básica, com $k = 19$ classes efetivamente observadas nos dados (capítulos I a XVIII e XX; os capítulos XIX e XXI nunca ocorrem como causa básica nesta base). A lista completa das classes e sua frequência estão na
     Tabela~\ref{tab:classes}.
   \item Período: 2000 a 2026, sendo 2026 um ano parcial.
@@ -120,7 +120,7 @@ A implementação usa a biblioteca scikit-learn~\cite{pedregosa2011} (versão 1.
 
 \subsection{Trabalhos relacionados}
 
-Em relação à classificação da causa de óbito em CID-10 a partir de laudos,\cite{mujtaba2017} classificaram automaticamente a causa de óbito em 9 categorias da CID-10 a partir do texto livre de 2.200 laudos de necropsia relacionados a acidentes. Compararam cinco classificadores (Naive Bayes, SVM, k-NN, J48 e Random Forest) combinados com seis estratégias de seleção de atributos; a melhor solução foi o Random Forest com seleção de atributos guiada por especialistas, atingindo cerca de 90\% de acurácia e de F-medida macro com 30 atributos. O contraste com o nosso trabalho é instrutivo e orientou uma decisão metodológica: o alto desempenho ali vem de entradas que \emph{descrevem clinicamente o óbito} (exame externo, lesões, exame interno, histórico médico).  Ou seja, os dois trabalhos resolvem problemas diferentes: lá, automatizar a codificação a partir da descrição clínica; aqui, medir a associação entre perfil sociodemográfico e categoria de causa.
+Em relação à classificação da causa de óbito em CID-10 a partir de laudos, \cite{mujtaba2017} classificaram automaticamente a causa de óbito em 9 categorias da CID-10 a partir do texto livre de 2.200 laudos de necropsia relacionados a acidentes. Compararam cinco classificadores (Naive Bayes, SVM, k-NN, J48 e Random Forest) combinados com seis estratégias de seleção de atributos; a melhor solução foi o Random Forest com seleção de atributos guiada por especialistas, atingindo cerca de 90\% de acurácia e de F-medida macro com 30 atributos. O contraste com o nosso trabalho é instrutivo e orientou uma decisão metodológica: o alto desempenho ali vem de entradas que \emph{descrevem clinicamente o óbito} (exame externo, lesões, exame interno, histórico médico).  Ou seja, os dois trabalhos resolvem problemas diferentes: lá, automatizar a codificação a partir da descrição clínica; aqui, medir a associação entre perfil sociodemográfico e categoria de causa.
 
 Aprendizado de máquina sobre desfechos de óbito no Brasil.
 \cite{silva2022} compararam Regressão Logística, Árvore de Decisão e
@@ -200,7 +200,7 @@ com o mesmo nome em todos os anos conferidos, listadas na Tabela~\ref{tab:coluna
 \end{tabular}
 \end{table}
 
-A análise exploratório (notebook 01) revelou problemas de de qualidade que definiram a preparação, como, formatos divergentes entre anos, dois tipos de ``sem informação'', mão-preenchimento que muda muito ao longo do tempo e mudança na composição das causas.
+A análise exploratória (notebook 01) revelou problemas de qualidade que definiram a preparação, como, formatos divergentes entre anos, dois tipos de ``sem informação'', não-preenchimento que muda muito ao longo do tempo e mudança na composição das causas.
 
 \begin{figure}[ht]
 \centering
@@ -260,7 +260,7 @@ VII   & Doenças do olho e anexos                               &       629 &  0
 \label{sec:etica}
 
 O projeto usa exclusivamente os microdados públicos do SIM, publicados como dados abertos pelo Ministério da Saúde sob licença CC-BY, e os utiliza como foram disponibilizados. Das 8 colunas lidas, nenhuma é identificador direto (nome, CPF, endereço). A Lei Geral de Proteção
-de Dados Pessoais~\cite{lgpd} define dado anonimizado como aquele ``relativo a titular que não possa ser identificado, considerando a utilização de meios técnicos razoáveis e disponíveis na ocasião de seu tratamento'' (art.~5º, inciso III) e estabelece, no art.~12, que dados anonimizados não são considerados dados pessoais, \emph{salvo} quando a anonimização puder ser revertida com esforços razoáveis. É exatamente essa ressalva que nos obriga a cuidado: a combinação de quase-identificadores (idade, município de residência e data do óbito) pode permitir reidentificação por inferência em municípios pequenos ou para causas raras.
+de Dados Pessoais~\cite{lgpd} define dado anonimizado como aquele ``relativo a titular que não possa ser identificado, considerando a utilização de meios técnicos razoáveis e disponíveis na ocasião de seu tratamento'' (art.~5º, inciso III) e estabelece, no art.~12, que dados anonimizados não são considerados dados pessoais, \emph{salvo} quando a anonimização puder ser revertida com esforços razoáveis. É exatamente essa ressalva que nos obriga a ter cuidado: a combinação de quase-identificadores (idade, município de residência e data do óbito) pode permitir reidentificação por inferência em municípios pequenos ou para causas raras.
 
 Um modelo que ``acertasse'' a causa porque leu a descrição da causa não mediria associação nenhuma, e reportá-lo como resultado seria enganoso. A prevenção estrutural e verificada em código descrita na Seção~\ref{sec:metodologia} é, portanto, também uma exigência de honestidade na apresentação dos resultados.
 
