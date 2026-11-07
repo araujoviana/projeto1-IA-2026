@@ -10,11 +10,11 @@ baseline de classe majoritária. Os resultados parciais (N1) estão no notebook 
 
 ## Integrantes
 
-- Arthur Meneses Neves (10425727)
-- Danilo Oliveira Santos (10410905)
-- Matheus Gabriel Viana Araujo (10420444)
-- João Victor Vidal Barbosa (10410165)
-- Guilherme Araujo Castro (10427775)
+- Arthur Meneses Neves
+- Danilo Oliveira Santos
+- Matheus Gabriel Viana Araujo
+- João Victor Vidal Barbosa
+- Guilherme Araujo Castro
 
 ## Organização
 
