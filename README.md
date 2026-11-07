@@ -43,4 +43,4 @@ leva cerca de 50 min em 16 vCPUs.
 
 ## Artigo Parcial
 
-[Abrir Artigo Parcial](https://github.com/araujoviana/projeto1-IA-2026/blob/main/docs/ArtigoParcial-Etapa2.pdf)
+O artigo está disponível como fonte LaTeX: [docs/ArtigoParcial-Etapa2.tex](docs/ArtigoParcial-Etapa2.tex).
