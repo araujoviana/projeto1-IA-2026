@@ -86,6 +86,16 @@ Passo a passo (manual):
    arquivos.
 4. Anotar aqui a URL usada e a data do download.
 
+## Colunas adicionais da N2
+
+O notebook 04 também lê `ESTCIV` (estado civil), `LOCOCOR` (local de
+ocorrência) e `ASSISTMED` (assistência médica durante a doença), e extrai o
+mês de `DTOBITO`. Elas são lidas só nos anos em que existem; os anos em que
+faltam ficam registrados nos diagnósticos da preparação e as linhas desses
+anos recebem "Ignorado". `NECROPSIA` não é usada: a necropsia é indicada por
+suspeita de morte violenta, então é consequência da causa (vazamento
+indireto do rótulo).
+
 ## Principais colunas usadas neste projeto
 
 | Coluna | Significado | Observação |

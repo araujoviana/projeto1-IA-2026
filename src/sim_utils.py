@@ -5,7 +5,8 @@
 # Síntese: Funções auxiliares do projeto sobre o SIM (Sistema de Informação
 # sobre Mortalidade): decodificação de IDADE e CAUSABAS (capítulo da CID-10),
 # leitura dos CSVs anuais e preparação do dataframe de modelagem, com cache
-# em Parquet.
+# em Parquet. Na N2, também os atributos do conjunto ampliado (mês do óbito,
+# estado civil, local de ocorrência e assistência médica).
 #
 # Changelog:
 #   2026-09-22 - Matheus Araujo - criação: decodificação de IDADE e CAUSABAS
@@ -17,6 +18,9 @@
 #   2026-09-23 - Matheus Araujo - FEATURE_COLUMNS e TARGET_COLUMN
 #   2026-09-24 - Matheus Araujo - ajuste de comentários e docstrings
 #   2026-09-25 - Matheus Araujo - revisão final dos comentários
+#   2026-11-16 - Matheus Araujo - N2: colunas opcionais (ESTCIV, LOCOCOR,
+#     ASSISTMED), mês do óbito, FEATURE_COLUMNS_AMPLIADO, grupos de atributos,
+#     região por UF; PREP_VERSION 2
 # =============================================================================
 import csv
 import hashlib
@@ -42,6 +46,14 @@ CORE_COLUMNS = [
     "CODMUNRES",
     "CAUSABAS",
 ]
+
+# Colunas lidas quando existem no arquivo do ano (N2). São campos do bloco
+# de identificação/ocorrência da Declaração de Óbito, preenchidos antes e
+# independentemente da codificação da causa. Se faltarem em algum ano, a
+# coluna fica NaN nesse ano e vira "Ignorado" na preparação. NECROPSIA fica
+# de fora de propósito: a necropsia é indicada por suspeita de morte
+# violenta, ou seja, é consequência da causa (vazamento indireto).
+OPTIONAL_COLUMNS = ["ESTCIV", "LOCOCOR", "ASSISTMED"]
 
 # Capítulos da CID-10 (OMS): (numeral, início, fim, descrição). Comparar as
 # strings "letra + 2 dígitos" funciona porque a ordem alfabética coincide com
@@ -269,21 +281,38 @@ def _caminho_ano(data_dir, ano):
     return caminho
 
 
-def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
+def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS, opcionais=OPTIONAL_COLUMNS):
     """Lê e concatena os CSVs dos `anos`, mantendo só `colunas` e
     acrescentando `ANO_ARQUIVO`, o ano do arquivo (pode diferir do ano de
     DTOBITO por causa de registros tardios).
+
+    As colunas de `opcionais` são lidas só nos anos em que existem; nos
+    demais ficam NaN. Os anos em que cada opcional faltou ficam em
+    `attrs["opcionais_ausentes"]` ({coluna: [anos]}).
 
     Os anos sem cabeçalho usam _ESQUEMAS_SEM_CABECALHO. DTOBITO sai como texto
     ddmmaaaa.
     """
     frames = []
+    ausentes = {c: [] for c in opcionais}
     for ano in anos:
         caminho = _caminho_ano(data_dir, ano)
+        sem_cabecalho = ano in _ESQUEMAS_SEM_CABECALHO
+        if sem_cabecalho:
+            disponiveis = set(_ESQUEMAS_SEM_CABECALHO[ano])
+        else:
+            disponiveis = set(
+                pd.read_csv(caminho, sep=";", encoding="latin1", nrows=0).columns
+            )
+        extras = [c for c in opcionais if c in disponiveis and c not in colunas]
+        for c in opcionais:
+            if c not in disponiveis:
+                ausentes[c].append(int(ano))
+        usar = list(colunas) + extras
         # O formato de DTOBITO muda com o ano (ddmmaaaa, dd-mm-aaaa ou inteiro
         # sem zero à esquerda); lê como texto e normaliza abaixo.
-        dtype = {"DTOBITO": str} if "DTOBITO" in colunas else None
-        if ano in _ESQUEMAS_SEM_CABECALHO:
+        dtype = {"DTOBITO": str} if "DTOBITO" in usar else None
+        if sem_cabecalho:
             _validar_primeira_linha_sem_cabecalho(
                 caminho, ano, _ESQUEMAS_SEM_CABECALHO[ano]
             )
@@ -293,7 +322,7 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
                 encoding="latin1",
                 header=None,
                 names=_ESQUEMAS_SEM_CABECALHO[ano],
-                usecols=colunas,
+                usecols=usar,
                 dtype=dtype,
                 low_memory=False,
             )
@@ -302,7 +331,7 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
                 caminho,
                 sep=";",
                 encoding="latin1",
-                usecols=colunas,
+                usecols=usar,
                 dtype=dtype,
                 low_memory=False,
             )
@@ -312,7 +341,9 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
             )
         df_ano["ANO_ARQUIVO"] = ano
         frames.append(df_ano)
-    return pd.concat(frames, ignore_index=True)
+    df = pd.concat(frames, ignore_index=True)
+    df.attrs["opcionais_ausentes"] = {c: a for c, a in ausentes.items() if a}
+    return df
 
 
 # =============================================================================
@@ -321,7 +352,7 @@ def load_sim_anos(data_dir, anos, colunas=CORE_COLUMNS):
 
 # Aumentar ao mudar a lógica de leitura, de preparação ou os mapeamentos
 # abaixo; a versão entra na chave do cache Parquet.
-PREP_VERSION = "1"
+PREP_VERSION = "2"
 
 # Escolaridade (ESC) pelo dicionário do SIM. Códigos fora do mapa (9, 0, NaN,
 # letras) viram "Ignorado".
@@ -335,6 +366,23 @@ ESC_MAP = {
 # Raça/cor pelo dicionário do SIM; o que não está no mapa vira "Ignorado".
 RACACOR_MAP = {1: "Branca", 2: "Preta", 3: "Amarela", 4: "Parda", 5: "Indígena"}
 SEXO_MAP = {1: "Masculino", 2: "Feminino"}
+# Campos opcionais (N2), pelo dicionário do SIM; fora do mapa vira "Ignorado".
+ESTCIV_MAP = {
+    1: "Solteiro",
+    2: "Casado",
+    3: "Viuvo",
+    4: "Separado",
+    5: "UniaoEstavel",
+}
+LOCOCOR_MAP = {
+    1: "Hospital",
+    2: "OutroEstabSaude",
+    3: "Domicilio",
+    4: "ViaPublica",
+    5: "Outros",
+    6: "AldeiaIndigena",
+}
+ASSISTMED_MAP = {1: "Sim", 2: "Nao"}
 ROTULO_IGNORADO = "Ignorado"
 
 # Código IBGE da UF (2 dígitos) para a sigla.
@@ -345,6 +393,12 @@ UF_POR_CODIGO_IBGE = {
     42: "SC", 43: "RS", 50: "MS", 51: "MT", 52: "GO", 53: "DF",
 }
 
+# Região do país pelo primeiro dígito do código IBGE da UF.
+_REGIAO_POR_DIGITO = {1: "Norte", 2: "Nordeste", 3: "Sudeste", 4: "Sul", 5: "Centro-Oeste"}
+REGIAO_POR_UF = {
+    sigla: _REGIAO_POR_DIGITO[codigo // 10] for codigo, sigla in UF_POR_CODIGO_IBGE.items()
+}
+
 MODEL_COLUMNS = [
     "idade_anos",
     "sexo",
@@ -353,15 +407,34 @@ MODEL_COLUMNS = [
     "uf",
     "codmun6",
     "ano_arquivo",
+    "mes_obito",
+    "estciv",
+    "lococor",
+    "assistmed",
     "capitulo_cid10",
 ]
 
-# Entradas e rótulo dos modelos (notebook 03). Só estas cinco variáveis são
-# features. Os campos que revelam a causa (LINHAA a LINHAD, CIRCOBITO,
-# CAUSABAS_O) nunca são lidos, pois não estão em CORE_COLUMNS. codmun6 e
-# ano_arquivo ficam no dataframe para análise, mas não entram como feature.
+# Entradas e rótulo dos modelos. FEATURE_COLUMNS são as cinco variáveis
+# sociodemográficas da N1 (notebook 03). Os campos que revelam a causa
+# (LINHAA a LINHAD, CIRCOBITO, CAUSABAS_O) nunca são lidos, pois não estão
+# em CORE_COLUMNS nem em OPTIONAL_COLUMNS. codmun6 fica no dataframe para
+# análise, mas não entra como feature.
 FEATURE_COLUMNS = ["idade_anos", "sexo", "racacor", "escolaridade", "uf"]
 TARGET_COLUMN = "capitulo_cid10"
+
+# Conjunto ampliado da N2 (notebook 04), em grupos para o estudo de ablação.
+# "tempo": quando o óbito ocorreu; "estado_civil": mais um atributo
+# sociodemográfico; "circunstancia": onde ocorreu e se houve assistência
+# médica. Nenhum deles é derivado da causa codificada.
+GRUPOS_FEATURES = {
+    "sociodemografico": FEATURE_COLUMNS,
+    "tempo": ["mes_obito", "ano_arquivo"],
+    "estado_civil": ["estciv"],
+    "circunstancia": ["lococor", "assistmed"],
+}
+FEATURE_COLUMNS_AMPLIADO = [c for grupo in GRUPOS_FEATURES.values() for c in grupo]
+# Entradas numéricas (passam direto); as demais recebem one-hot.
+NUMERIC_FEATURES = ["idade_anos", "ano_arquivo"]
 
 
 def decode_idade_anos_vetorizado(idade):
@@ -444,6 +517,24 @@ def tabela_mapeamento(bruto_por_ano, mapa):
     return tab.sort_values(["mapeado", "bruto"]).reset_index(drop=True)
 
 
+def _mes_obito(dtobito):
+    """Mês do óbito ("01" a "12") a partir de DTOBITO normalizado (ddmmaaaa);
+    data inválida ou ausente vira "Ignorado"."""
+    texto = pd.Series(dtobito, dtype="string").str.strip()
+    mes = pd.to_numeric(texto.str.slice(2, 4), errors="coerce")
+    valido = texto.str.fullmatch(r"\d{8}").fillna(False).to_numpy(dtype=bool)
+    mes_num = mes.to_numpy(dtype=float, na_value=np.nan)
+    valido &= (mes_num >= 1) & (mes_num <= 12)
+    categorias = [f"{m:02d}" for m in range(1, 13)] + [ROTULO_IGNORADO]
+    codigos = np.where(valido, np.nan_to_num(mes_num, nan=13) - 1, 12).astype(np.int8)
+    return pd.Categorical.from_codes(codigos, categories=categorias)
+
+
+def regiao_de_uf(uf):
+    """Região (Norte, Nordeste, ...) de cada UF; "Ignorado" fica "Ignorado"."""
+    return pd.Series(uf, dtype="string").map(REGIAO_POR_UF).fillna(ROTULO_IGNORADO)
+
+
 def _municipio_e_uf(serie):
     """Converte CODMUNRES (6 ou 7 dígitos IBGE; o 7º é o verificador) em
     codmun6 (Int32, NA se inválido) e uf (sigla ou "Ignorado"). É válido o
@@ -472,6 +563,8 @@ def preparar_df_modelo(df):
       "Ignorado" e a linha é mantida.
     - codmun6 e uf: derivados de CODMUNRES; município inválido vira uf "Ignorado".
     - ano_arquivo e capitulo_cid10 (o alvo); sem capítulo, a linha é descartada.
+    - mes_obito (de DTOBITO) e estciv, lococor, assistmed (ver os mapas
+      acima); valor inválido ou coluna ausente vira "Ignorado".
 
     Os filtros rodam em sequência (sexo, idade, capítulo). Em
     `attrs["diagnosticos"]` ficam a contagem de linhas descartadas em cada
@@ -482,6 +575,15 @@ def preparar_df_modelo(df):
 
     escolaridade, esc_bruto = _categorizar(df["ESC"], ano, ESC_MAP)
     racacor, raca_bruto = _categorizar(df["RACACOR"], ano, RACACOR_MAP)
+    vazio = pd.Series(np.nan, index=df.index)
+    opcionais = {}
+    for coluna, mapa in (
+        ("ESTCIV", ESTCIV_MAP), ("LOCOCOR", LOCOCOR_MAP), ("ASSISTMED", ASSISTMED_MAP),
+    ):
+        opcionais[coluna.lower()] = _categorizar(df.get(coluna, vazio), ano, mapa)
+    mes = _mes_obito(df["DTOBITO"]) if "DTOBITO" in df.columns else _mes_obito(
+        pd.Series(pd.NA, index=df.index)
+    )
 
     sexo_num = pd.to_numeric(df["SEXO"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
     ok_sexo = np.isin(sexo_num, list(SEXO_MAP))
@@ -508,6 +610,10 @@ def preparar_df_modelo(df):
             "uf": uf[m_final].remove_unused_categories(),
             "codmun6": codmun6[m_final],
             "ano_arquivo": pd.Series(ano[m_final]).astype("int16"),
+            "mes_obito": mes[m_final],
+            "estciv": opcionais["estciv"][0][m_final],
+            "lococor": opcionais["lococor"][0][m_final],
+            "assistmed": opcionais["assistmed"][0][m_final],
             "capitulo_cid10": capitulo[m_final].remove_unused_categories(),
         }
     )[MODEL_COLUMNS]
@@ -526,6 +632,10 @@ def preparar_df_modelo(df):
         },
         "esc_bruto_por_ano": esc_bruto,
         "racacor_bruto_por_ano": raca_bruto,
+        "estciv_bruto_por_ano": opcionais["estciv"][1],
+        "lococor_bruto_por_ano": opcionais["lococor"][1],
+        "assistmed_bruto_por_ano": opcionais["assistmed"][1],
+        "opcionais_ausentes": dict(df.attrs.get("opcionais_ausentes", {})),
     }
     if "TIPOBITO" in df.columns:
         tipo = df["TIPOBITO"].to_numpy(dtype=object)[m_final]

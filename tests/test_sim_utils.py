@@ -12,6 +12,8 @@
 #   2026-09-23 - Matheus Araujo - testes de preparar_df_modelo e do cache
 #   2026-09-23 - Matheus Araujo - testes de FEATURE_COLUMNS e TARGET_COLUMN
 #   2026-09-24 - Matheus Araujo - ajuste de comentários
+#   2026-11-16 - Matheus Araujo - N2: colunas opcionais, mês do óbito,
+#     conjunto ampliado de atributos e região por UF
 # =============================================================================
 import sys
 from pathlib import Path
@@ -313,7 +315,8 @@ def test_preparar_df_modelo_colunas_e_tipos():
     out = preparar_df_modelo(_df_bruto())
     assert list(out.columns) == [
         "idade_anos", "sexo", "racacor", "escolaridade", "uf",
-        "codmun6", "ano_arquivo", "capitulo_cid10",
+        "codmun6", "ano_arquivo", "mes_obito", "estciv", "lococor",
+        "assistmed", "capitulo_cid10",
     ]
     assert not out.isna().any().any() or list(out.columns[out.isna().any()]) == ["codmun6"]
 
@@ -513,3 +516,95 @@ def test_feature_columns_nao_vazam_o_rotulo():
         assert maiusculo not in {"CIRCOBITO", "CAUSABAS", "CAUSABAS_O"}
     # todas existem no frame de modelagem
     assert set(FEATURE_COLUMNS + [TARGET_COLUMN]) <= set(sim_utils.MODEL_COLUMNS)
+
+
+# -----------------------------------------------------------------------------
+# N2: colunas opcionais, mês do óbito e conjunto ampliado
+# -----------------------------------------------------------------------------
+
+
+def test_load_sim_anos_le_opcionais_quando_existem_e_registra_ausentes(tmp_path):
+    (tmp_path / "Mortalidade_Geral_2000.csv").write_text(
+        '"TIPOBITO";"DTOBITO";"IDADE";"SEXO";"RACACOR";"ESC";"CODMUNRES";"CAUSABAS";"ESTCIV";"LOCOCOR"\n'
+        '"2";"01012000";"423";"1";"1";"3";"3550308";"I219";"2";"4"\n',
+        encoding="latin1",
+    )
+    _escrever_csv_fake(
+        tmp_path / "Mortalidade_Geral_2001.csv",
+        '"2";"02012001";"365";"2";"4";"2";"3304557";"C349"',
+    )
+    df = load_sim_anos(tmp_path, [2000, 2001])
+    assert list(df["ESTCIV"].iloc[:1]) == [2]
+    assert pd.isna(df["ESTCIV"].iloc[1])  # 2001 não tem a coluna
+    assert df.attrs["opcionais_ausentes"] == {
+        "ESTCIV": [2001], "LOCOCOR": [2001], "ASSISTMED": [2000, 2001],
+    }
+
+
+def test_load_sim_anos_sem_cabecalho_le_opcionais_do_esquema():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        esquema = sim_utils._ESQUEMAS_SEM_CABECALHO[2023]
+        _escrever_csv_sem_cabecalho(
+            Path(d) / "Mortalidade_Geral_2023.csv", esquema,
+            {"CONTADOR": "1", "TIPOBITO": "2", "DTOBITO": "15072023", "IDADE": "450",
+             "SEXO": "1", "RACACOR": "4", "ESC": "3", "CODMUNRES": "355030",
+             "CAUSABAS": "J189", "ESTCIV": "3", "LOCOCOR": "1", "ASSISTMED": "1"},
+        )
+        df = load_sim_anos(d, [2023])
+    assert (df["ESTCIV"].iloc[0], df["LOCOCOR"].iloc[0], df["ASSISTMED"].iloc[0]) == (3, 1, 1)
+    assert df.attrs["opcionais_ausentes"] == {}
+
+
+def test_mes_obito_valido_e_invalido():
+    datas = ["01012000", "31122010", "15132020", None, "1-05-200", "00072021"]
+    mes = sim_utils._mes_obito(pd.Series(datas))
+    assert list(mes.astype(str)) == ["01", "12", "Ignorado", "Ignorado", "Ignorado", "07"]
+    assert len(mes.categories) == 13
+
+
+def test_preparar_df_modelo_sem_colunas_opcionais_vira_ignorado():
+    out = preparar_df_modelo(_df_bruto())
+    for col in ("estciv", "lococor", "assistmed"):
+        assert set(out[col].astype(str)) == {"Ignorado"}
+    assert set(out["mes_obito"].astype(str)) == {"01"}
+
+
+def test_preparar_df_modelo_mapeia_opcionais():
+    bruto = _df_bruto()
+    bruto["ESTCIV"] = [1, 2, 3, 4, 5, 9, np.nan, 1, 2]
+    bruto["LOCOCOR"] = [1, 2, 3, 4, 5, 6, 9, 1, 3]
+    bruto["ASSISTMED"] = [1, 2, 9, 1, 2, np.nan, 1, 1, 2]
+    bruto["DTOBITO"] = ["01012000", "01022000", "01032001", "01042001", "01052022",
+                        "01062022", "01072023", "01082023", "01092023"]
+    out = preparar_df_modelo(bruto).reset_index(drop=True)
+    # sobreviventes: linhas 0, 1, 4, 5, 6, 8
+    assert list(out["estciv"].astype(str)) == ["Solteiro", "Casado", "UniaoEstavel", "Ignorado", "Ignorado", "Casado"]
+    assert list(out["lococor"].astype(str)) == ["Hospital", "OutroEstabSaude", "Outros", "AldeiaIndigena", "Ignorado", "Domicilio"]
+    assert list(out["assistmed"].astype(str)) == ["Sim", "Nao", "Nao", "Ignorado", "Sim", "Nao"]
+    assert list(out["mes_obito"].astype(str)) == ["01", "02", "05", "06", "07", "09"]
+    diag = out.attrs["diagnosticos"]
+    assert diag["lococor_bruto_por_ano"]["2023"] == {"1": 1, "3": 1, "9": 1}
+
+
+def test_regiao_de_uf():
+    assert list(sim_utils.regiao_de_uf(["SP", "AM", "BA", "RS", "DF", "Ignorado"])) == [
+        "Sudeste", "Norte", "Nordeste", "Sul", "Centro-Oeste", "Ignorado",
+    ]
+    assert len(sim_utils.REGIAO_POR_UF) == 27
+
+
+def test_feature_columns_ampliado_nao_vaza_o_rotulo():
+    ampliado = sim_utils.FEATURE_COLUMNS_AMPLIADO
+    assert ampliado[:5] == FEATURE_COLUMNS
+    assert len(ampliado) == len(set(ampliado))
+    assert set(ampliado) <= set(sim_utils.MODEL_COLUMNS)
+    assert TARGET_COLUMN not in ampliado and "codmun6" not in ampliado
+    for nome in ampliado:
+        assert not nome.upper().startswith("LINHA")
+        assert nome.upper() not in {"CIRCOBITO", "CAUSABAS", "CAUSABAS_O", "NECROPSIA"}
+    lidas = set(sim_utils.CORE_COLUMNS) | set(sim_utils.OPTIONAL_COLUMNS)
+    assert not any(c.startswith("LINHA") for c in lidas)
+    assert lidas.isdisjoint({"CIRCOBITO", "CAUSABAS_O", "NECROPSIA"})
+    assert set(sim_utils.NUMERIC_FEATURES) <= set(ampliado)

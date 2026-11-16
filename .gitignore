@@ -257,3 +257,6 @@ docs/*.log
 docs/*.fdb_latexmk
 docs/*.fls
 docs/*.synctex.gz
+
+# RAs e e-mails dos integrantes: só na versão do artigo entregue no AVA
+docs/ras.tex
