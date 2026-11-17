@@ -1,0 +1,399 @@
+{
+  "ambiente": {
+    "python": "3.13.18",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "pandas": "3.0.6",
+    "cpus": 8,
+    "ram_gb": 54.75039232
+  },
+  "config": {
+    "FRACAO_TREINO": 0.3,
+    "N_BUSCA_TREINO": 1000000,
+    "N_BUSCA_VAL": 500000,
+    "N_ITER_BUSCA": 10,
+    "SEMENTES": [
+      42,
+      7,
+      2026
+    ],
+    "N_BOOT": 200,
+    "MODO_RAPIDO": false
+  },
+  "n": {
+    "total": 32531918,
+    "treino": 26025534,
+    "teste": 6506384,
+    "treino_final": 7807661,
+    "busca_treino": 1000033,
+    "busca_val": 500040
+  },
+  "melhores_parametros": {
+    "Random Forest": {
+      "n_estimators": 100,
+      "max_depth": 16,
+      "min_samples_leaf": 50,
+      "max_features": 0.5
+    },
+    "XGBoost": {
+      "n_estimators": 200,
+      "max_depth": 10,
+      "learning_rate": 0.1,
+      "min_child_weight": 10,
+      "subsample": 1.0,
+      "colsample_bytree": 1.0
+    }
+  },
+  "melhor_modelo": "XGBoost (ampliado)",
+  "comparacao": [
+    {
+      "modelo": "Baseline majoritária",
+      "f1_macro": 0.022388,
+      "acuracia": 0.270141,
+      "recall_macro": 0.052632,
+      "tempo_treino_s": 0.0,
+      "ic95_inf": 0.022366,
+      "ic95_sup": 0.022409
+    },
+    {
+      "modelo": "Baseline tabela idade×sexo",
+      "f1_macro": 0.109692,
+      "acuracia": 0.163875,
+      "recall_macro": 0.208461,
+      "tempo_treino_s": 639.977646,
+      "ic95_inf": 0.109477,
+      "ic95_sup": 0.109869
+    },
+    {
+      "modelo": "Random Forest (base)",
+      "f1_macro": 0.136874,
+      "acuracia": 0.171311,
+      "recall_macro": 0.223192,
+      "tempo_treino_s": 672.097942,
+      "ic95_inf": 0.136571,
+      "ic95_sup": 0.137153
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "f1_macro": 0.140031,
+      "acuracia": 0.172496,
+      "recall_macro": 0.227132,
+      "tempo_treino_s": 1311.50648,
+      "ic95_inf": 0.139681,
+      "ic95_sup": 0.140301
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "f1_macro": 0.181462,
+      "acuracia": 0.232938,
+      "recall_macro": 0.269592,
+      "tempo_treino_s": 764.912761,
+      "ic95_inf": 0.181178,
+      "ic95_sup": 0.181765
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "f1_macro": 0.188784,
+      "acuracia": 0.242377,
+      "recall_macro": 0.278046,
+      "tempo_treino_s": 1922.724759,
+      "ic95_inf": 0.188477,
+      "ic95_sup": 0.189106
+    }
+  ],
+  "diferencas": [
+    {
+      "par": "XGBoost (ampliado) - Random Forest (ampliado)",
+      "media": 0.007319,
+      "ic_inf": 0.007095,
+      "ic_sup": 0.00753,
+      "observado": 0.007322,
+      "ic_exclui_zero": true
+    },
+    {
+      "par": "XGBoost (base) - Random Forest (base)",
+      "media": 0.003157,
+      "ic_inf": 0.003003,
+      "ic_sup": 0.003319,
+      "observado": 0.003157,
+      "ic_exclui_zero": true
+    },
+    {
+      "par": "XGBoost (ampliado) - XGBoost (base)",
+      "media": 0.048749,
+      "ic_inf": 0.048499,
+      "ic_sup": 0.049026,
+      "observado": 0.048753,
+      "ic_exclui_zero": true
+    },
+    {
+      "par": "Random Forest (ampliado) - Random Forest (base)",
+      "media": 0.044588,
+      "ic_inf": 0.044329,
+      "ic_sup": 0.044837,
+      "observado": 0.044588,
+      "ic_exclui_zero": true
+    },
+    {
+      "par": "XGBoost (ampliado) - Baseline tabela idade×sexo",
+      "media": 0.079084,
+      "ic_inf": 0.078763,
+      "ic_sup": 0.079436,
+      "observado": 0.079093,
+      "ic_exclui_zero": true
+    }
+  ],
+  "sementes": [
+    {
+      "modelo": "Random Forest",
+      "mean": 0.179062,
+      "std": 0.000424,
+      "min": 0.178572,
+      "max": 0.179323
+    },
+    {
+      "modelo": "XGBoost",
+      "mean": 0.186732,
+      "std": 0.000311,
+      "min": 0.186386,
+      "max": 0.186988
+    }
+  ],
+  "ablacao": [
+    {
+      "experimento": "base (sociodemográfico)",
+      "tipo": "cumulativo",
+      "n_atributos": 5,
+      "f1_macro_val": 0.13699,
+      "ganho_vs_anterior": NaN,
+      "perda_vs_completo": NaN
+    },
+    {
+      "experimento": "+ tempo",
+      "tipo": "cumulativo",
+      "n_atributos": 7,
+      "f1_macro_val": 0.160815,
+      "ganho_vs_anterior": 0.023825,
+      "perda_vs_completo": NaN
+    },
+    {
+      "experimento": "+ estado_civil",
+      "tipo": "cumulativo",
+      "n_atributos": 8,
+      "f1_macro_val": 0.16254,
+      "ganho_vs_anterior": 0.001726,
+      "perda_vs_completo": NaN
+    },
+    {
+      "experimento": "+ circunstancia",
+      "tipo": "cumulativo",
+      "n_atributos": 10,
+      "f1_macro_val": 0.187605,
+      "ganho_vs_anterior": 0.025065,
+      "perda_vs_completo": NaN
+    },
+    {
+      "experimento": "ampliado sem tempo",
+      "tipo": "retirada",
+      "n_atributos": 8,
+      "f1_macro_val": 0.166496,
+      "ganho_vs_anterior": NaN,
+      "perda_vs_completo": 0.021109
+    },
+    {
+      "experimento": "ampliado sem estado_civil",
+      "tipo": "retirada",
+      "n_atributos": 9,
+      "f1_macro_val": 0.185887,
+      "ganho_vs_anterior": NaN,
+      "perda_vs_completo": 0.001718
+    },
+    {
+      "experimento": "ampliado sem circunstancia",
+      "tipo": "retirada",
+      "n_atributos": 8,
+      "f1_macro_val": 0.16254,
+      "ganho_vs_anterior": NaN,
+      "perda_vs_completo": 0.025065
+    }
+  ],
+  "importancia": [
+    {
+      "atributo": "idade_anos",
+      "queda_f1_media": 0.085022,
+      "queda_f1_dp": 0.000254
+    },
+    {
+      "atributo": "lococor",
+      "queda_f1_media": 0.032444,
+      "queda_f1_dp": 0.000212
+    },
+    {
+      "atributo": "ano_arquivo",
+      "queda_f1_media": 0.024103,
+      "queda_f1_dp": 0.000317
+    },
+    {
+      "atributo": "uf",
+      "queda_f1_media": 0.010823,
+      "queda_f1_dp": 0.000707
+    },
+    {
+      "atributo": "assistmed",
+      "queda_f1_media": 0.010414,
+      "queda_f1_dp": 0.000309
+    },
+    {
+      "atributo": "sexo",
+      "queda_f1_media": 0.009475,
+      "queda_f1_dp": 0.000215
+    },
+    {
+      "atributo": "escolaridade",
+      "queda_f1_media": 0.008082,
+      "queda_f1_dp": 7.9e-05
+    },
+    {
+      "atributo": "estciv",
+      "queda_f1_media": 0.004608,
+      "queda_f1_dp": 0.000211
+    },
+    {
+      "atributo": "mes_obito",
+      "queda_f1_media": 0.003662,
+      "queda_f1_dp": 0.000105
+    },
+    {
+      "atributo": "racacor",
+      "queda_f1_media": 0.003311,
+      "queda_f1_dp": 0.00029
+    }
+  ],
+  "temporal": [
+    {
+      "modelo": "Random Forest (base)",
+      "ano_teste": 2023,
+      "n": 1463485,
+      "f1_macro": 0.131439
+    },
+    {
+      "modelo": "Random Forest (base)",
+      "ano_teste": 2024,
+      "n": 1529958,
+      "f1_macro": 0.128633
+    },
+    {
+      "modelo": "Random Forest (base)",
+      "ano_teste": 2025,
+      "n": 1526343,
+      "f1_macro": 0.127156
+    },
+    {
+      "modelo": "Random Forest (base)",
+      "ano_teste": 2026,
+      "n": 506027,
+      "f1_macro": 0.126759
+    },
+    {
+      "modelo": "Random Forest (base)",
+      "ano_teste": "2023-2026",
+      "n": 5025813,
+      "f1_macro": 0.128862
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "ano_teste": 2023,
+      "n": 1463485,
+      "f1_macro": 0.132773
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "ano_teste": 2024,
+      "n": 1529958,
+      "f1_macro": 0.130156
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "ano_teste": 2025,
+      "n": 1526343,
+      "f1_macro": 0.128258
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "ano_teste": 2026,
+      "n": 506027,
+      "f1_macro": 0.128336
+    },
+    {
+      "modelo": "XGBoost (base)",
+      "ano_teste": "2023-2026",
+      "n": 5025813,
+      "f1_macro": 0.130208
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "ano_teste": 2023,
+      "n": 1463485,
+      "f1_macro": 0.134575
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "ano_teste": 2024,
+      "n": 1529958,
+      "f1_macro": 0.136025
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "ano_teste": 2025,
+      "n": 1526343,
+      "f1_macro": 0.134347
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "ano_teste": 2026,
+      "n": 506027,
+      "f1_macro": 0.133059
+    },
+    {
+      "modelo": "Random Forest (ampliado)",
+      "ano_teste": "2023-2026",
+      "n": 5025813,
+      "f1_macro": 0.134817
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "ano_teste": 2023,
+      "n": 1463485,
+      "f1_macro": 0.141226
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "ano_teste": 2024,
+      "n": 1529958,
+      "f1_macro": 0.141369
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "ano_teste": 2025,
+      "n": 1526343,
+      "f1_macro": 0.139477
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "ano_teste": 2026,
+      "n": 506027,
+      "f1_macro": 0.138401
+    },
+    {
+      "modelo": "XGBoost (ampliado)",
+      "ano_teste": "2023-2026",
+      "n": 5025813,
+      "f1_macro": 0.140522
+    }
+  ],
+  "n1_referencia": {
+    "Baseline majoritária (N1)": 0.0224,
+    "Random Forest (N1)": 0.1329,
+    "XGBoost (N1)": 0.1406
+  }
+}

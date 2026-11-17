@@ -48,7 +48,7 @@ inteiro sem zero à esquerda (2024-2026).
   entra no modelo no nível de UF: 27 categorias, nenhuma "Ignorado").
 - **Valores "Ignorado" (proporção pooled, todos os anos):** `RACACOR`
   5,389%; `ESC` 26,409%. A ausência varia por ano (em 2000, por exemplo,
-  `RACACOR` ~16% e `ESC` ~20%), então esses percentuais pooled não devem ser
+  `RACACOR` ~16% e `ESC` ~44%, dos quais ~20% em branco e ~25% com código 9), então esses percentuais pooled não devem ser
   extrapolados para um ano específico.
 
 ## Escopo temporal do projeto
@@ -96,6 +96,14 @@ anos recebem "Ignorado". `NECROPSIA` não é usada: a necropsia é indicada por
 suspeita de morte violenta, então é consequência da causa (vazamento
 indireto do rótulo).
 
+As três colunas existem em todos os anos de 2000 a 2026, mas `ASSISTMED`
+vem inteiramente em branco nos arquivos publicados de 2009 e 2010, e 99,8%
+em branco no de 2023. No conjunto preparado (32.531.918 registros),
+"Ignorado" soma 9,84% em `ESTCIV`, 0,22% em `LOCOCOR` e 48,13% em
+`ASSISTMED` (por ano, em `resultados/n2_ignorado_por_ano.csv`). O código
+`ESC = 0`, fora do dicionário, aparece só entre 2009 e 2014 (231.933
+registros, 0,711% do bruto; ver `resultados/n2_esc_zero_por_ano.csv`).
+
 ## Principais colunas usadas neste projeto
 
 | Coluna | Significado | Observação |
@@ -105,6 +113,6 @@ indireto do rótulo).
 | `IDADE` | Idade codificada (1º dígito = unidade, 2 últimos = valor) | ver `sim_utils.decode_idade_anos` |
 | `SEXO` | 0=ignorado, 1=masculino, 2=feminino | |
 | `RACACOR` | Raça/cor autodeclarada | "Ignorado" pooled 5,389% (varia por ano; ~16% em 2000) |
-| `ESC` | Escolaridade | "Ignorado" pooled 26,409% (varia por ano; ~20% em 2000) |
+| `ESC` | Escolaridade | "Ignorado" pooled 26,409% (varia por ano; ~44% em 2000, somando branco e código 9) |
 | `CODMUNRES` | Código IBGE do município de residência | |
 | `CAUSABAS` | Causa básica do óbito, CID-9 (até 1995) ou CID-10 (1996+) | ver `sim_utils.causabas_to_chapter` |

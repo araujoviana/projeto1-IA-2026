@@ -10,7 +10,7 @@
 % confiança por bootstrap pareado, análise de erro por subgrupo com
 % supressão de células pequenas, importância por permutação (XAI),
 % checagem temporal e conclusão. Os números da N2 vêm do notebook 04 e dos
-% arquivos em resultados/. Trechos marcados com \PEND{} aguardam a execução.
+% arquivos em resultados/.
 %
 % Versões: sem RA (GitHub) por padrão; com RA e e-mail (AVA) se existir o
 % arquivo docs/ras.tex, que não é versionado (ver .gitignore).
@@ -19,6 +19,10 @@
 %   2026-11-16 — Matheus Araujo — criação a partir do artigo parcial: nova
 %     estrutura da N2 (contribuições alcançadas, resultados, conclusão),
 %     metodologia da N2 e esqueleto dos resultados finais
+%   2026-11-17 — Matheus Araujo — resultados finais preenchidos a partir da
+%     execução completa do notebook 04 (resultados/n2_*.csv): resumo,
+%     hiperparâmetros, comparação no teste, ablação, por classe, subgrupos,
+%     checagem temporal, limitações e conclusão
 % =============================================================================
 
 \documentclass[12pt]{article}
@@ -59,7 +63,7 @@ Universidade Presbiteriana Mackenzie (UPM)\\
 \maketitle
 
 \begin{resumo}
-  Este artigo apresenta o resultado final de um projeto de IA aplicada que classifica a causa básica de óbito, agregada em seu capítulo da CID-10, a partir de atributos registrados na Declaração de Óbito e disponíveis no Sistema de Informação sobre Mortalidade (SIM), para o Brasil inteiro entre 2000 e 2026 (32.531.918 registros, 19 capítulos). Na primeira etapa, com cinco atributos sociodemográficos e configurações iniciais, Random Forest e XGBoost alcançaram F1-macro de 0,1329 e 0,1406, contra 0,0224 de um baseline de classe majoritária. Nesta etapa final, ajustamos os dois algoritmos com o mesmo orçamento de busca, comparamos o conjunto original de atributos com um conjunto ampliado (mês e ano do óbito, estado civil, local de ocorrência e assistência médica), introduzimos um baseline sem aprendizado (tabela idade $\times$ sexo) e medimos a incerteza por bootstrap pareado. O melhor modelo, \PEND{modelo}, alcança F1-macro de \PEND{0,xxxx} (IC 95\%: \PEND{0,xxxx}--\PEND{0,xxxx}). \PEND{Uma frase com a conclusão principal: o ganho veio dos atributos ou do ajuste? quanto acima da tabela idade×sexo?} Discutimos também o desempenho por subgrupo (sexo, raça/cor, faixa etária, escolaridade e região), a importância de cada atributo e as implicações éticas do uso desses modelos.
+  Este artigo apresenta o resultado final de um projeto de IA aplicada que classifica a causa básica de óbito, agregada em seu capítulo da CID-10, a partir de atributos registrados na Declaração de Óbito e disponíveis no Sistema de Informação sobre Mortalidade (SIM), para o Brasil inteiro entre 2000 e 2026 (32.531.918 registros, 19 capítulos). Na primeira etapa, com cinco atributos sociodemográficos e configurações iniciais, Random Forest e XGBoost alcançaram F1-macro de 0,1329 e 0,1406, contra 0,0224 de um baseline de classe majoritária. Nesta etapa final, ajustamos os dois algoritmos com o mesmo orçamento de busca, comparamos o conjunto original de atributos com um conjunto ampliado (mês e ano do óbito, estado civil, local de ocorrência e assistência médica), introduzimos um baseline sem aprendizado (tabela idade $\times$ sexo) e medimos a incerteza por bootstrap pareado. O melhor modelo, XGBoost com o conjunto ampliado, alcança F1-macro de 0,1888 (IC 95\%: 0,1885--0,1891), 0,0791 acima da tabela idade $\times$ sexo (0,1097). Quase todo o ganho sobre a primeira etapa veio dos atributos novos (+0,049 no XGBoost), e não do ajuste de hiperparâmetros, o que confirma a hipótese da N1 de que o limite estava nos atributos e não no algoritmo. Uma checagem temporal (treino até 2022, teste 2023--2026) mostra, porém, que a maior parte desse ganho não se transfere para anos novos, em boa parte porque depende do ano do óbito: fora da faixa de anos do treino, o ganho dos atributos cai para 0,010. Discutimos também o desempenho por subgrupo (sexo, raça/cor, faixa etária, escolaridade e região), a importância de cada atributo e as implicações éticas do uso desses modelos.
 \end{resumo}
 
 \section{Introdução}
@@ -98,7 +102,7 @@ Nenhuma variável que descreva a cadeia de causas da própria declaração é us
 \begin{itemize}
   \item Uma análise exploratória e uma preparação documentadas e reprodutíveis do SIM 2000--2026, incluindo as inconsistências de formato entre anos (arquivos sem cabeçalho, três formatos de data) e a evolução do não-preenchimento, com testes automatizados para cada regra de preparação.
   \item Uma comparação entre Random Forest e XGBoost sob o mesmo protocolo e o mesmo orçamento de ajuste, com intervalos de confiança e testes de diferença pareados, e contra dois baselines, um deles sem aprendizado de máquina (tabela idade $\times$ sexo).
-  \item Uma medida da contribuição de cada grupo de atributos (sociodemográfico, tempo, estado civil, circunstância do óbito) por ablação e por importância por permutação, que testa a hipótese da N1 de que o limite vinha dos atributos e não do algoritmo. \PEND{confirmar se a hipótese se sustentou}
+  \item Uma medida da contribuição de cada grupo de atributos (sociodemográfico, tempo, estado civil, circunstância do óbito) por ablação e por importância por permutação, que testa a hipótese da N1 de que o limite vinha dos atributos e não do algoritmo. A hipótese se sustentou: o ajuste mudou o F1-macro em menos de 0,005, e os atributos novos, em quase 0,05, ganho que cai para 0,010 quando o teste é feito em anos posteriores ao treino.
   \item Uma análise de desempenho por subgrupo (sexo, raça/cor, faixa etária, escolaridade e região), com supressão de células pequenas implementada em código.
 \end{itemize}
 
@@ -148,7 +152,7 @@ A Tabela~\ref{tab:relacionados} resume as diferenças. Os trabalhos de melhor de
 \cite{mujtaba2017} & 9 categorias CID-10 & texto de necropsia & 2.200 laudos & RF, F1-macro $\approx$ 0,90 \\
 \cite{silva2022} & óbito COVID (binário) & clínicas & 134.639 & RF, AUC 0,75 \\
 \cite{santos2019} & óbito em 5 anos (binário) & 37 mistas & 2.808 & AUC $>$ 0,70 \\
-Este trabalho & 19 capítulos CID-10 & 5 a 10 não clínicas & 32,5 milhões & \PEND{modelo, F1-macro} \\
+Este trabalho & 19 capítulos CID-10 & 5 a 10 não clínicas & 32,5 milhões & XGBoost, F1-macro 0,189 \\
 \hline
 \end{tabular}}
 \end{table}
@@ -194,11 +198,11 @@ A Figura~\ref{fig:arquitetura} mostra o fluxo. O código está organizado em qua
 \begin{enumerate}
   \item Análise exploratória (notebook 01) e preparação (notebook 02, ampliada na N2 com as novas colunas).
   \item Divisão treino/teste: a mesma da N1, aleatória e estratificada por classe, 80\% para treino e 20\% (6.506.384 linhas) para teste.
-  \item Busca de hiperparâmetros: \PEND{10} configurações sorteadas para cada algoritmo, treinadas em uma amostra estratificada de \PEND{1.000.000} linhas do treino e avaliadas por F1-macro em uma validação de \PEND{500.000} linhas, também tirada do treino e disjunta da amostra de busca. As amostras têm piso de 50 linhas por classe, para que os capítulos VII e VIII estejam presentes. Os espaços de busca estão no notebook 04; no Random Forest a profundidade foi limitada a 16, porque com 19 classes cada nó armazena 19 valores e árvores sem limite não caberiam em memória no treino final.
+  \item Busca de hiperparâmetros: 10 configurações sorteadas para cada algoritmo, treinadas em uma amostra estratificada de 1.000.000 de linhas do treino e avaliadas por F1-macro em uma validação de 500.000 linhas, também tirada do treino e disjunta da amostra de busca. As amostras têm piso de 50 linhas por classe, para que os capítulos VII e VIII estejam presentes. Os espaços de busca estão no notebook 04; no Random Forest a profundidade foi limitada a 16, porque com 19 classes cada nó armazena 19 valores e árvores sem limite não caberiam em memória no treino final.
   \item Variação por semente: os melhores modelos são retreinados com 3 sementes, mudando também a amostra de treino.
   \item Ablação: o XGBoost ajustado é treinado com os grupos de atributos entrando de forma cumulativa e com cada grupo retirado do conjunto ampliado.
-  \item Modelos finais: Random Forest e XGBoost com os melhores parâmetros, nos conjuntos base e ampliado, treinados com \PEND{30\%} do treino (amostra estratificada de \PEND{7,8} milhões de linhas) e avaliados no teste completo.
-  \item Avaliação no teste: F1-macro com intervalo de confiança de 95\% por bootstrap pareado (\PEND{200} réplicas), métricas por classe, matriz de confusão, desempenho por subgrupo, importância por permutação e checagem temporal (treino até 2022, teste 2023 a 2026).
+  \item Modelos finais: Random Forest e XGBoost com os melhores parâmetros, nos conjuntos base e ampliado, treinados com 30\% do treino (amostra estratificada de 7,8 milhões de linhas) e avaliados no teste completo.
+  \item Avaliação no teste: F1-macro com intervalo de confiança de 95\% por bootstrap pareado (200 réplicas), métricas por classe, matriz de confusão, desempenho por subgrupo, importância por permutação e checagem temporal (treino até 2022, teste 2023 a 2026).
 \end{enumerate}
 
 Dois baselines servem de referência: o de classe majoritária, da N1, e uma \emph{tabela idade $\times$ sexo}, que, para cada faixa de 5 anos e sexo, prevê a classe de maior frequência ponderada pelos mesmos pesos balanceados dos modelos. A tabela não usa aprendizado de máquina; se um modelo não a supera, ele não aprendeu nada além de uma regra de idade e sexo.
@@ -249,8 +253,8 @@ A preparação é feita por uma única função, compartilhada por todos os note
 
 \begin{itemize}
   \item Idade: decodificada para anos completos a partir do código do SIM (o primeiro dígito indica a unidade e os dois últimos, o valor).
-  \item Escolaridade, raça/cor, estado civil, local de ocorrência e assistência médica: mapeadas para categorias nomeadas, com ``Ignorado'' como categoria explícita em vez de imputação. ``Ignorado'' soma 26,409\% em \texttt{ESC} e 5,389\% em \texttt{RACACOR}; descartar essas linhas enviesaria a amostra contra os anos iniciais. \PEND{percentuais de Ignorado de ESTCIV, LOCOCOR e ASSISTMED (n2\_ignorado\_por\_ano.csv)}
-  \item Código 0 de escolaridade: não consta do dicionário de \texttt{ESC} e foi mapeado para ``Ignorado''. Na N2, contamos sua ocorrência por ano: \PEND{x\% do bruto, concentrado em ... (n2\_esc\_zero\_por\_ano.csv)}, o que \PEND{sustenta / não sustenta} a decisão.
+  \item Escolaridade, raça/cor, estado civil, local de ocorrência e assistência médica: mapeadas para categorias nomeadas, com ``Ignorado'' como categoria explícita em vez de imputação. ``Ignorado'' soma 26,409\% em \texttt{ESC} e 5,389\% em \texttt{RACACOR}; descartar essas linhas enviesaria a amostra contra os anos iniciais. Nas colunas novas, ``Ignorado'' soma 9,84\% em \texttt{ESTCIV}, 0,22\% em \texttt{LOCOCOR} e 48,13\% em \texttt{ASSISTMED}, sobre os 32,5 milhões de registros preparados. No caso de \texttt{ASSISTMED}, os arquivos publicados de 2009 e 2010 trazem a coluna inteiramente em branco, e o de 2023, 99,8\% em branco; nos demais anos a falta fica entre 36\% e 60\% (\texttt{n2\_ignorado\_por\_ano.csv}).
+  \item Código 0 de escolaridade: não consta do dicionário de \texttt{ESC} e foi mapeado para ``Ignorado''. Na N2, contamos sua ocorrência por ano: são 231.933 registros (0,711\% do bruto), todos entre 2009 e 2014, com pico de 7,0\% em 2012 e nenhum em 2013 (\texttt{n2\_esc\_zero\_por\_ano.csv}). Essa concentração sugere uso sistemático do código em algumas versões do sistema, possivelmente como ``sem escolaridade'', como na variável \texttt{ESC2010}; mapear para ``Ignorado'' é, portanto, uma escolha conservadora, e não uma correção. Como afeta menos de 1\% dos registros, o efeito sobre os resultados é pequeno, e a decisão foi mantida.
   \item Mês do óbito: extraído de \texttt{DTOBITO} depois de normalizar os três formatos de data; data inválida vira ``Ignorado''.
   \item Município: truncado para 6 dígitos e agregado em unidade da federação. Com mais de 5.500 municípios, o \emph{one-hot} seria inviável e o risco de reidentificação em células pequenas aumentaria (Seção~\ref{sec:etica}).
   \item Filtros: foram descartados 15.842 registros com \texttt{SEXO} ignorado, 81.308 com idade desconhecida e 3 sem capítulo da CID-10 (97.153 no total, 0,2977\% do bruto), restando 32.531.918 registros e 19 classes.
@@ -299,7 +303,7 @@ VII   & Doenças do olho e anexos                               &       629 &  0
 
 \subsection{Resultados esperados}
 
-Com base na N1, esperávamos que o ajuste de hiperparâmetros trouxesse ganho pequeno e que os atributos novos trouxessem ganho maior, concentrado nos capítulos ligados à circunstância (causas externas, pelo local de ocorrência) e à sazonalidade (respiratório, pelo mês). Também esperávamos que os modelos superassem a tabela idade $\times$ sexo, mas com margem menor do que a margem sobre o baseline de classe majoritária. A Seção~\ref{sec:resultados} mostra \PEND{o que de fato ocorreu}.
+Com base na N1, esperávamos que o ajuste de hiperparâmetros trouxesse ganho pequeno e que os atributos novos trouxessem ganho maior, concentrado nos capítulos ligados à circunstância (causas externas, pelo local de ocorrência) e à sazonalidade (respiratório, pelo mês). Também esperávamos que os modelos superassem a tabela idade $\times$ sexo, mas com margem menor do que a margem sobre o baseline de classe majoritária. A Seção~\ref{sec:resultados} mostra que a primeira expectativa se confirmou e as outras duas, só em parte. O ajuste trouxe ganho pequeno. Os atributos novos trouxeram ganho maior, mas não onde esperávamos: além das causas externas, ele apareceu nas causas mal definidas e nas doenças infecciosas, e não no respiratório, porque veio do ano e não do mês. A margem sobre a tabela idade $\times$ sexo foi menor que a margem sobre a classe majoritária, como previsto, mas maior do que esperávamos (0,079).
 
 \section{Resultados}
 \label{sec:resultados}
@@ -311,30 +315,31 @@ Com base na N1, esperávamos que o ajuste de hiperparâmetros trouxesse ganho pe
 
 \textbf{Vazamento e honestidade dos resultados.} Um modelo que acertasse a causa porque leu a descrição da causa não mediria associação nenhuma. A exclusão estrutural da cadeia de causas e da necropsia, verificada por testes, e a ablação que separa o efeito do local de ocorrência são, portanto, também uma exigência de honestidade na apresentação dos resultados.
 
-\textbf{Viés.} O não-preenchimento de raça/cor e escolaridade é grande e varia ao longo dos anos (Figura~\ref{fig:ausentes}); mantemos ``Ignorado'' como categoria explícita em vez de imputar, o que esconderia o viés em vez de expô-lo. A análise por subgrupo (Seção~\ref{sec:desempenho}) mostra \PEND{resumo: amplitude do F1-macro entre grupos de raça/cor, escolaridade e região; algum grupo claramente pior?}. Diferenças entre subgrupos não são, sozinhas, prova de viés do modelo, porque a composição de causas difere entre grupos; por isso comparamos cada subgrupo também com a tabela idade $\times$ sexo. \PEND{interpretação}
+\textbf{Viés.} O não-preenchimento de raça/cor e escolaridade é grande e varia ao longo dos anos (Figura~\ref{fig:ausentes}); mantemos ``Ignorado'' como categoria explícita em vez de imputar, o que esconderia o viés em vez de expô-lo. A análise por subgrupo (Seção~\ref{sec:desempenho}) mostra amplitudes moderadas do F1-macro entre grupos: 0,030 em raça/cor (de 0,166, indígena, a 0,196, ``Ignorado''), 0,025 em escolaridade e 0,014 entre regiões. Nenhum grupo fica abaixo da tabela idade $\times$ sexo, e o ganho sobre ela varia de 0,064 (raça/cor preta) a 0,088 (raça/cor ``Ignorado''). Diferenças entre subgrupos não são, sozinhas, prova de viés do modelo, porque a composição de causas difere entre grupos; por isso comparamos cada subgrupo também com a tabela idade $\times$ sexo. A leitura que fazemos é que o modelo não prejudica de forma marcada nenhum grupo, mas também não beneficia todos por igual. O F1-macro é mais baixo para pessoas indígenas (0,166) e pretas (0,170) do que para brancas (0,180) e pardas (0,183), e o ganho sobre a tabela é menor para pessoas pretas (0,064) do que para brancas (0,076). Os grupos ``Ignorado'' têm o maior desempenho em raça/cor e em escolaridade. Uma explicação provável é que a falta de preenchimento se concentra nos anos iniciais e, portanto, carrega informação sobre o período, e não que esses grupos sejam mais bem atendidos pelo modelo. Essas diferenças são pequenas, mas qualquer uso do modelo precisa acompanhá-las.
 
-\textbf{Uso pretendido e limites.} O objetivo é apoiar o planejamento em saúde pública em nível agregado, por exemplo, estimar a composição esperada de causas para um perfil populacional. O modelo não deve ser usado para decisões sobre pessoas, nem para inferir a causa de uma morte específica sem o laudo médico, que é a fonte de verdade. O desempenho absoluto (F1-macro de \PEND{0,xx}) reforça essa restrição. O alvo é o capítulo da CID-10, e não o código completo, o que produz uma categoria ampla e auditável. Todo o código, incluindo a preparação e as verificações de vazamento, é público.
+\textbf{Uso pretendido e limites.} O objetivo é apoiar o planejamento em saúde pública em nível agregado, por exemplo, estimar a composição esperada de causas para um perfil populacional. O modelo não deve ser usado para decisões sobre pessoas, nem para inferir a causa de uma morte específica sem o laudo médico, que é a fonte de verdade. O desempenho absoluto (F1-macro de 0,19) reforça essa restrição. O alvo é o capítulo da CID-10, e não o código completo, o que produz uma categoria ampla e auditável. Todo o código, incluindo a preparação e as verificações de vazamento, é público.
 
 \textbf{Comitê de ética.} O projeto usa apenas dados públicos, secundários e anonimizados, sem acesso a registros identificáveis, sem vinculação com outras bases e sem contato com pessoas; nessas condições, em linha com a orientação da disciplina, o grupo conclui que a submissão ao CEP não é necessária. Isso deve ser reavaliado se o projeto passar a usar registros identificáveis, cruzar o SIM com outra base ou envolver contato com pessoas.
 
 \subsection{Detalhamento dos resultados}
 \label{sec:desempenho}
 
-\textbf{Ajuste de hiperparâmetros.} A Tabela~\ref{tab:hiper} mostra as melhores configurações. \PEND{comentar: o ajuste mudou muito em relação às configurações da N1 (RF profundidade 12; XGB 100 rodadas, profundidade 6, taxa 0,3)? Quanto ganhou na validação?} A variação entre as 3 sementes foi de \PEND{desvio-padrão} no Random Forest e \PEND{desvio-padrão} no XGBoost, \PEND{menor/maior} que a diferença entre os dois algoritmos.
+\textbf{Ajuste de hiperparâmetros.} A Tabela~\ref{tab:hiper} mostra as melhores configurações. As duas buscas preferiram árvores mais profundas que as da N1 (Random Forest com profundidade 16, contra 12; XGBoost com profundidade 10 e taxa de aprendizado 0,1, contra profundidade 6 e taxa 0,3). No Random Forest, o hiperparâmetro decisivo foi a fração de atributos por nó: as seis melhores configurações usam 50\% dos atributos (F1-macro de validação de 0,169 a 0,178), e as quatro que usam a raiz quadrada ficam entre 0,139 e 0,163. No XGBoost, as dez configurações ficaram entre 0,179 e 0,188, ou seja, o algoritmo é pouco sensível aos hiperparâmetros neste problema. A variação entre as 3 sementes teve desvio-padrão de 0,0004 no Random Forest (média 0,1791) e de 0,0003 no XGBoost (média 0,1867), cerca de vinte vezes menor que a diferença entre os dois algoritmos (0,0076).
 
 \begin{table}[ht]
 \centering
-\caption{Melhores hiperparâmetros encontrados pela busca aleatória (\PEND{10} configurações por algoritmo) e F1-macro na validação.}
+\caption{Melhores hiperparâmetros encontrados pela busca aleatória (10 configurações por algoritmo, conjunto ampliado) e F1-macro na validação.}
 \label{tab:hiper}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{|l|l|r|}
 \hline
 \textbf{Modelo} & \textbf{Hiperparâmetros} & \textbf{F1-macro val.} \\
 \hline
-Random Forest & \PEND{n\_estimators, max\_depth, min\_samples\_leaf, max\_features} & \PEND{} \\
-XGBoost & \PEND{n\_estimators, max\_depth, learning\_rate, ...} & \PEND{} \\
+Random Forest & 100 árvores, profundidade 16, mín. 50 por folha, 50\% dos atributos por nó & 0,1785 \\
+XGBoost & 200 rodadas, profundidade 10, taxa 0,1, \texttt{min\_child\_weight} 10, sem subamostragem & 0,1876 \\
 \hline
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \textbf{Comparação no teste.} A Tabela~\ref{tab:comparacao} reúne os baselines, os modelos da N1 e os quatro modelos finais.
@@ -349,21 +354,29 @@ XGBoost & \PEND{n\_estimators, max\_depth, learning\_rate, ...} & \PEND{} \\
 \textbf{Modelo} & \textbf{F1-macro} & \textbf{IC 95\%} & \textbf{Acurácia} & \textbf{Treino (s)} \\
 \hline
 Baseline classe majoritária & 0,0224 & -- & 0,2701 & -- \\
-Baseline tabela idade $\times$ sexo & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
+Baseline tabela idade $\times$ sexo & 0,1097 & 0,1095--0,1099 & 0,1639 & -- \\
 Random Forest N1 (sem ajuste) & 0,1329 & -- & 0,1625 & 343,9 \\
 XGBoost N1 (sem ajuste) & 0,1406 & -- & 0,1755 & 983,3 \\
 \hline
-Random Forest ajustado, base & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
-XGBoost ajustado, base & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
-Random Forest ajustado, ampliado & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
-XGBoost ajustado, ampliado & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
+Random Forest ajustado, base & 0,1369 & 0,1366--0,1372 & 0,1713 & 672,1 \\
+XGBoost ajustado, base & 0,1400 & 0,1397--0,1403 & 0,1725 & 1.311,5 \\
+Random Forest ajustado, ampliado & 0,1815 & 0,1812--0,1818 & 0,2329 & 764,9 \\
+XGBoost ajustado, ampliado & \textbf{0,1888} & 0,1885--0,1891 & 0,2424 & 1.922,7 \\
 \hline
 \end{tabular}
 \end{table}
 
-\PEND{Discussão em 3 parágrafos, com os números de n2\_diferencas.csv: (1) efeito do ajuste: modelos base ajustados vs. N1; (2) efeito dos atributos: ampliado vs. base, com IC da diferença; (3) RF vs. XGBoost: a diferença é maior que o ruído entre sementes? o custo compensa? (4) margem sobre a tabela idade×sexo. Nota: os modelos da N1 foram treinados com 100\% do treino e os da N2 com a fração indicada; dizer isso ao comparar.}
+\emph{Efeito do ajuste.} No conjunto base, o Random Forest ajustado ganhou 0,0040 sobre a N1 (0,1369 contra 0,1329), e o XGBoost ajustado ficou praticamente igual (0,1400 contra 0,1406). Os modelos da N1 foram treinados com 100\% do treino e os da N2 com 30\%; mesmo com menos dados, o ajuste empatou ou melhorou, mas o efeito é pequeno. Os tempos de treino também não são diretamente comparáveis, porque a N1 e a N2 rodaram em máquinas diferentes (a N2, em uma máquina com 8 núcleos e 55~GB de RAM).
 
-\textbf{Ablação e importância dos atributos.} A Tabela~\ref{tab:ablacao} mostra o ganho de cada grupo, e a Figura~\ref{fig:importancia}, a importância por permutação no melhor modelo. \PEND{Qual grupo trouxe mais ganho? Quanto do ganho depende do local de ocorrência? A hipótese da N1 se confirmou?}
+\emph{Efeito dos atributos.} Com os mesmos hiperparâmetros, o conjunto ampliado acrescentou 0,0488 ao XGBoost (IC 95\% da diferença: 0,0485--0,0490) e 0,0446 ao Random Forest (0,0443--0,0448). É cerca de dez vezes o efeito do ajuste.
+
+\emph{Random Forest contra XGBoost.} O XGBoost foi melhor nos dois conjuntos: por 0,0032 no base (0,0030--0,0033) e por 0,0073 no ampliado (0,0071--0,0075). As duas diferenças excluem o zero e são muito maiores que a variação entre sementes (desvio-padrão de 0,0003 a 0,0004), então a vantagem é real, embora pequena em termos absolutos. O custo é de 2,5 vezes o tempo de treino no conjunto ampliado (1.922,7~s contra 764,9~s).
+
+\emph{Margem sobre os baselines.} A tabela idade $\times$ sexo, sem nenhum aprendizado, já alcança 0,1097, quase cinco vezes o baseline de classe majoritária. O melhor modelo a supera em 0,0791 (0,0788--0,0794). No conjunto base, porém, a margem dos modelos sobre a tabela é de só 0,027 a 0,030: com os cinco atributos da N1, boa parte do que os modelos aprendiam já estava em uma regra de idade e sexo.
+
+\textbf{Ablação e importância dos atributos.} A Tabela~\ref{tab:ablacao} mostra o ganho de cada grupo, e a Figura~\ref{fig:importancia}, a importância por permutação no melhor modelo. Dois grupos respondem por quase todo o ganho, em partes iguais: circunstância (local de ocorrência e assistência médica, +0,0251) e tempo (mês e ano, +0,0238); estado civil acrescenta pouco (+0,0017). A ablação por retirada confirma a ordem: sem circunstância o F1-macro cai 0,0251, sem tempo cai 0,0211 e sem estado civil, 0,0017.
+
+A permutação mostra o que há dentro de cada grupo. A idade continua sendo, de longe, o atributo mais importante (queda de 0,085), seguida do local de ocorrência (0,032) e do ano (0,024); o mês do óbito pesa pouco (0,004). O ganho do grupo ``tempo'' vem, portanto, do ano, e o ano captura sobretudo a pandemia de COVID-19: no SIM, a COVID-19 é codificada como B34.2, do capítulo I, que passou de 4,2\% dos óbitos em 2019 para 17,2\% em 2020 e 26,6\% em 2021. O ano não revela a causa de um óbito individual, mas revela a composição de causas do período, e por isso só ajuda quando o ano de teste está dentro da faixa vista no treino (ver a checagem temporal adiante). O ganho do grupo ``circunstância'' aparece nas causas externas e nas mal definidas (próximo parágrafo), o que é coerente com o local ``via pública'' estar associado às causas externas e com óbitos em domicílio sem assistência médica terem mais chance de receber uma causa mal definida. Somando tudo, a hipótese da N1 se confirma: o ajuste de hiperparâmetros moveu o F1-macro em menos de 0,005, e os atributos novos, em quase 0,05. O limite estava nos atributos disponíveis, e não na escolha do algoritmo.
 
 \begin{table}[ht]
 \centering
@@ -374,14 +387,14 @@ XGBoost ajustado, ampliado & \PEND{} & \PEND{} & \PEND{} & \PEND{} \\
 \hline
 \textbf{Conjunto} & \textbf{F1-macro val.} & \textbf{Variação} \\
 \hline
-Base (sociodemográfico) & \PEND{} & -- \\
-+ tempo (mês, ano) & \PEND{} & \PEND{} \\
-+ estado civil & \PEND{} & \PEND{} \\
-+ circunstância (local, assistência) & \PEND{} & \PEND{} \\
+Base (sociodemográfico) & 0,1370 & -- \\
++ tempo (mês, ano) & 0,1608 & +0,0238 \\
++ estado civil & 0,1625 & +0,0017 \\
++ circunstância (local, assistência) & 0,1876 & +0,0251 \\
 \hline
-Ampliado sem tempo & \PEND{} & \PEND{} \\
-Ampliado sem estado civil & \PEND{} & \PEND{} \\
-Ampliado sem circunstância & \PEND{} & \PEND{} \\
+Ampliado sem tempo & 0,1665 & $-$0,0211 \\
+Ampliado sem estado civil & 0,1859 & $-$0,0017 \\
+Ampliado sem circunstância & 0,1625 & $-$0,0251 \\
 \hline
 \end{tabular}
 \end{table}
@@ -389,11 +402,11 @@ Ampliado sem circunstância & \PEND{} & \PEND{} \\
 \begin{figure}[ht]
 \centering
 \figuraN{width=0.7\textwidth}{figuras/n2_importancia.png}
-\caption{Importância por permutação: queda do F1-macro ao embaralhar cada atributo, em uma amostra de \PEND{300.000} linhas do teste.}
+\caption{Importância por permutação: queda do F1-macro ao embaralhar cada atributo, em uma amostra de 300.000 linhas do teste (3 repetições; as barras de erro são o desvio-padrão).}
 \label{fig:importancia}
 \end{figure}
 
-\textbf{Desempenho por classe.} A Figura~\ref{fig:f1classe} compara o F1 por capítulo da tabela idade $\times$ sexo e do XGBoost nos dois conjuntos. \PEND{Quais capítulos melhoraram com os atributos novos (esperado: XX pelo local, X pelo mês)? Quais continuam perto de zero? Capítulos VII e VIII: lembrar o suporte (126 e 898).}
+\textbf{Desempenho por classe.} A Figura~\ref{fig:f1classe} compara o F1 por capítulo da tabela idade $\times$ sexo e do XGBoost nos dois conjuntos. Os maiores ganhos dos atributos novos foram nas doenças infecciosas (capítulo I, F1 de 0,043 para 0,341, pelo ano), nas causas mal definidas (XVIII, de 0,190 para 0,385, pelo local e pela assistência médica) e nas causas externas (XX, de 0,552 para 0,666, pelo local). O respiratório (X), em que esperávamos ganho pelo mês, subiu pouco (de 0,134 para 0,177) e ficou abaixo da própria tabela idade $\times$ sexo (0,186). O circulatório (IX), a classe mais frequente, continua com F1 baixo (0,107, recall de 0,06). Uma explicação provável é que, com pesos balanceados, os óbitos de idosos ficam divididos entre várias classes de perfil parecido, e a classe grande é a que mais perde recall. Perinatal (XVI, F1 de 0,68) e causas externas (0,67) são as classes mais fáceis: a primeira é quase determinada pela idade (menores de 1 ano), e a segunda tem um perfil de idade, sexo e local bem distinto. Sangue (III), pele (XII) e osteomuscular (XIII) ficam abaixo de 0,03, e os capítulos VIII e VII têm F1 praticamente nulo, com apenas 898 e 126 casos no teste, respectivamente.
 
 \begin{figure}[ht]
 \centering
@@ -402,7 +415,16 @@ Ampliado sem circunstância & \PEND{} & \PEND{} \\
 \label{fig:f1classe}
 \end{figure}
 
-\textbf{Subgrupos.} A Figura~\ref{fig:subgrupos} mostra o F1-macro do melhor modelo por subgrupo, com a tabela idade $\times$ sexo como referência. \PEND{descrever as maiores diferenças e se o ganho sobre a tabela é parecido entre grupos.}
+A matriz de confusão do melhor modelo (Figura~\ref{fig:confusao}) mostra onde estão os erros. Gravidez, parto e puerpério (XV) tem o maior recall (0,94), porque a classe é definida por sexo e faixa de idade, mas o F1 é baixo (0,10) porque muitos óbitos de mulheres jovens de outras causas também são atribuídos a ela. Das malformações congênitas (XVII), 52\% são classificadas como perinatais (XVI), e 20\% das perinatais, como malformações: as duas se concentram nos menores de 1 ano, e nenhum atributo disponível as separa bem. O circulatório (IX) tem recall de só 0,06, com os erros espalhados entre causas mal definidas (0,13), neoplasias (0,11), endócrinas (0,10) e respiratório (0,09), todas comuns entre idosos.
+
+\begin{figure}[ht]
+\centering
+\figuraN{width=0.95\textwidth}{figuras/n2_matriz_confusao.png}
+\caption{Matriz de confusão do XGBoost ampliado no teste, normalizada por linha (cada linha soma 1; a diagonal é o recall da classe).}
+\label{fig:confusao}
+\end{figure}
+
+\textbf{Subgrupos.} A Figura~\ref{fig:subgrupos} mostra o F1-macro do melhor modelo por subgrupo, com a tabela idade $\times$ sexo como referência. O modelo supera a tabela em todos os subgrupos. Entre os sexos, o F1-macro é 0,193 nos homens e 0,168 nas mulheres, mas o ganho sobre a tabela é maior nas mulheres (0,104 contra 0,085). Dentro de cada faixa etária, o F1-macro cai para 0,08 a 0,11, porque a idade, o atributo mais informativo, deixa de variar dentro do grupo; a faixa de menores de 1 ano é a mais baixa (0,076). Entre regiões, o desempenho é homogêneo (0,178 no Sudeste a 0,191 no Norte). Em raça/cor e escolaridade, as amplitudes e os ganhos estão discutidos na Seção~\ref{sec:etica}. Nenhuma célula precisou ser suprimida nesta tabela, porque todos os subgrupos têm muito mais de 10 casos; a supressão é aplicada de qualquer forma, por função, a toda tabela por subgrupo.
 
 \begin{figure}[ht]
 \centering
@@ -411,9 +433,9 @@ Ampliado sem circunstância & \PEND{} & \PEND{} \\
 \label{fig:subgrupos}
 \end{figure}
 
-\textbf{Generalização temporal.} Treinando até 2022 e testando em 2023, 2024, 2025 e 2026, \PEND{resultado; comparar com a N1, em que o F1-macro caiu 0,0051 (RF) e 0,0053 (XGBoost) entre 2023 e 2026}.
+\textbf{Generalização temporal.} Treinando até 2022 e testando em 2023, 2024, 2025 e 2026 (5.025.813 registros), o XGBoost ampliado alcança F1-macro de 0,1405, contra 0,1302 do XGBoost base; no Random Forest, 0,1348 contra 0,1289 (\texttt{n2\_temporal.csv}). Esse resultado é o mais importante para interpretar o ganho dos atributos. Na divisão aleatória, o conjunto ampliado acrescentava 0,049 ao XGBoost; fora da faixa de anos do treino, acrescenta 0,010. A queda do XGBoost ampliado entre as duas avaliações (de 0,1888 para 0,1405) é cinco vezes a do base (de 0,1400 para 0,1302). Isso é coerente com o que a ablação e a permutação indicavam: boa parte do ganho vinha do ano, que na divisão aleatória identifica a composição de causas de cada período, como os anos da pandemia, e que nos anos de teste fica fora da faixa vista no treino e é tratado pelas árvores como 2022. O ganho que sobra, de cerca de 0,01, é o que se pode esperar ao aplicar o modelo a anos novos; pela ablação, ele deve vir sobretudo do local de ocorrência e da assistência médica, mas a checagem temporal não separa os grupos. Dentro do período de teste, o desempenho é estável: entre 2023 e 2026 o F1-macro caiu 0,0044 no XGBoost base e 0,0028 no ampliado, perto da queda observada na N1 (0,0051 no Random Forest e 0,0053 no XGBoost). O arquivo de 2023, com \texttt{ASSISTMED} em branco, não teve desempenho pior que os demais.
 
-\textbf{Limitações.} \PEND{revisar ao final} (i) os modelos finais foram treinados com uma fração do treino por limite de memória; (ii) o intervalo de confiança do bootstrap mede a incerteza do teste, e a do treino é estimada só por 3 sementes; (iii) os capítulos VII e VIII continuam com poucos casos de teste; (iv) a busca de hiperparâmetros cobre \PEND{10} configurações por algoritmo, longe de um ajuste exaustivo; (v) o local de ocorrência, embora não derivado da causa, está fortemente associado a causas externas, e um uso do modelo que não tenha essa informação disponível deve usar o conjunto base.
+\textbf{Limitações.} (i) Os modelos finais foram treinados com 30\% do treino, por limite de memória e de tempo; os modelos da N1 usaram 100\%, o que torna a comparação do efeito do ajuste conservadora. (ii) O intervalo de confiança do bootstrap mede a incerteza do teste; a do treino é estimada só por 3 sementes, e na amostra de busca, não no treino final. (iii) Os capítulos VII e VIII continuam com poucos casos de teste (126 e 898), e seus resultados não permitem conclusão. (iv) A busca de hiperparâmetros cobre 10 configurações por algoritmo, longe de um ajuste exaustivo, e foi feita no conjunto ampliado; os mesmos parâmetros foram usados no base. (v) O local de ocorrência, embora não derivado da causa, está fortemente associado às causas externas, e um uso do modelo sem essa informação deve usar o conjunto base. (vi) O ano do óbito só ajuda dentro da faixa vista no treino; seu ganho reflete a composição de causas de cada período, sobretudo a pandemia de COVID-19, e não se transfere para anos futuros. (vii) \texttt{ASSISTMED} está em branco nos arquivos de 2009, 2010 e 2023, e o código 0 de escolaridade, que aparece só entre 2009 e 2014, foi tratado como ``Ignorado''.
 
 \subsection{Endereços do repositório e do vídeo}
 
@@ -423,9 +445,9 @@ Todo o material está em um repositório público: \url{https://github.com/arauj
 
 Este projeto classificou o capítulo da CID-10 da causa básica de óbito a partir de atributos não clínicos da Declaração de Óbito, usando 32,5 milhões de registros do SIM (2000--2026). Na primeira etapa, com cinco atributos sociodemográficos, Random Forest e XGBoost superaram com folga o baseline de classe majoritária, mas com F1-macro baixo em termos absolutos (0,13 a 0,14). Na etapa final, ajustamos os dois algoritmos com o mesmo orçamento, ampliamos o conjunto de atributos e medimos a incerteza e o desempenho por subgrupo.
 
-\PEND{Parágrafo com o resultado principal: melhor modelo e F1-macro com IC; quanto veio do ajuste e quanto dos atributos; margem sobre a tabela idade×sexo; RF vs. XGBoost.}
+O melhor modelo foi o XGBoost com o conjunto ampliado, com F1-macro de 0,1888 (IC 95\%: 0,1885--0,1891) no mesmo conjunto de teste da N1, contra 0,1406 do melhor modelo da primeira etapa e 0,1097 de uma tabela idade $\times$ sexo sem aprendizado. Quase todo esse ganho veio dos atributos: o ajuste de hiperparâmetros, com orçamento igual para os dois algoritmos, mudou o F1-macro em menos de 0,005, enquanto o conjunto ampliado acrescentou 0,049 ao XGBoost e 0,045 ao Random Forest. O XGBoost superou o Random Forest nos dois conjuntos, com diferença pequena (0,003 a 0,007), mas muito acima da variação entre sementes, e ao custo de cerca de 2,5 vezes o tempo de treino.
 
-\PEND{Parágrafo sobre o objetivo: foi alcançado? Classificar com o desempenho medido e, principalmente, medir quanto cada grupo de atributos contribui. Responder à hipótese da N1.}
+O objetivo foi alcançado nas duas partes. Classificamos o capítulo da CID-10 com desempenho medido, com intervalo de confiança e comparado a baselines que mostram o que ele significa. Medimos também quanto cada grupo de atributos contribui: circunstância do óbito e ano respondem, em partes iguais, por quase todo o ganho, e estado civil e mês acrescentam pouco. A hipótese levantada na N1, de que o limite vinha dos atributos e não do algoritmo, se confirmou. A explicação do ganho, porém, pede cautela, e a checagem temporal a quantifica. Treinando até 2022 e testando em 2023--2026, o melhor modelo cai para 0,1405, e o ganho dos atributos novos, de 0,049 para 0,010. Boa parte do que se perde é o efeito do ano, que captura a composição de causas de cada período (sobretudo a pandemia de COVID-19) e não se estende a anos futuros. O que resta deve vir do local de ocorrência e da assistência médica, que são informações legítimas da declaração, embora o local esteja fortemente ligado às causas externas. Para uso em anos novos, o número a esperar é, portanto, um F1-macro em torno de 0,14, e não 0,19.
 
 As contribuições efetivas são: uma preparação reprodutível e testada do SIM em série longa; uma comparação entre algoritmos com intervalos de confiança e baselines que tornam o resultado interpretável; a medida da contribuição de cada grupo de atributos; e uma análise de desempenho por subgrupo com proteção de células pequenas. O resultado também tem valor negativo: atributos não clínicos explicam pouco da causa do óbito, e qualquer uso desses modelos deve ser agregado, nunca individual. Como trabalhos futuros, sugerimos incorporar variáveis agregadas por município (porte, cobertura de atenção básica), com supressão de células pequenas, e avaliar limiares de decisão por classe, que podem melhorar o equilíbrio entre precisão e recall nos capítulos raros.
 

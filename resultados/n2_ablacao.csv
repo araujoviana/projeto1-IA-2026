@@ -1,0 +1,8 @@
+experimento,tipo,n_atributos,f1_macro_val,ganho_vs_anterior,perda_vs_completo
+base (sociodemográfico),cumulativo,5,0.13698994179050814,,
++ tempo,cumulativo,7,0.16081487800706723,0.023824936216559095,
++ estado_civil,cumulativo,8,0.16254042937264038,0.001725551365573147,
++ circunstancia,cumulativo,10,0.187605005926221,0.02506457655358063,
+ampliado sem tempo,retirada,8,0.1664962386447169,,0.0211087672815041
+ampliado sem estado_civil,retirada,9,0.18588722681272807,,0.0017177791134929399
+ampliado sem circunstancia,retirada,8,0.16254042937264038,,0.02506457655358063

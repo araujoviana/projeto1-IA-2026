@@ -74,12 +74,16 @@ As configurações também podem vir de variáveis de ambiente (`FRACAO_TREINO`,
 `N_ITER_BUSCA`, `N_BOOT`, `SIM_DATA_DIR`...). O notebook foi testado de ponta
 a ponta com um SIM sintético no mesmo formato dos arquivos reais.
 
+A execução registrada no repositório (notebook 04 e `resultados/`) foi feita
+com a configuração padrão em uma VM do Google Colab (8 vCPUs, 55 GB de RAM),
+com o ambiente do `uv.lock`, e levou cerca de 5 horas.
+
 ## Artigo
 
 Compile em `docs/` com `pdflatex`, `bibtex`, `pdflatex`, `pdflatex`. Sem o
 arquivo `docs/ras.tex` sai a versão pública, sem RA. Com ele, que não é
-versionado, sai a versão para o AVA, com RA e e-mail. No artigo final, os
-trechos em vermelho (`\PEND{}`) aguardam os resultados do notebook 04.
+versionado, sai a versão para o AVA, com RA e e-mail. Os números do artigo
+final saem de `resultados/`.
 
 Fontes: [artigo parcial (N1)](docs/ArtigoParcial-Etapa2.tex) e
 [artigo final (N2)](docs/ArtigoFinal-Etapa3.tex).
